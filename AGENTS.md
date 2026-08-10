@@ -2,20 +2,20 @@
 
 ## Project status
 
-- This repo is a **new, from-scratch build**. The directory is currently empty — scaffold the project (Maven layout, build files, `.gitignore`) before adding source. Do not expect existing code.
+- This is a **from-scratch** Maven/Netty Java Modbus client library (`com.seayar:modbus4j:1.0.0`, Java 8). Build it with `mvn package`.
+- Scope: TCP + RTU-over-TCP + ASCII master modes, async pipelined reads, adaptive concurrency, rich data types, extension SPIs. Slave mode is a future release.
+- Reference-only design source: `/mnt/d/Workspace/Java/modbus4j` (older Netty client). Public API mirrors **MangoAutomation/modbus4j** (ModbusFactory/ModbusMaster/IpParameters/BaseLocator/BatchRead) under package `com.seayar.modbus4j`.
 
-## Reference project (follow its conventions, don't copy wholesale)
+## Build & verification
 
-Design is based on `/mnt/d/Workspace/Java/modbus4j` (Netty-based Java Modbus client, `com.seayar:modbus4j:1.0`). It is reference only. Verified conventions to match:
+- Compile/tests: `mvn package`. Tests: JUnit 4, self-contained (embedded Netty slave + `EmbeddedChannel`). No mock framework; never add tests needing a live device.
+- **Coverage gate**: JaCoCo enforces >=95% line coverage at `verify` (`jacoco:check`). During active development run `mvn verify -Djacoco.skip=true` (or `-Djacoco.skip=true` on `package`) to bypass until coverage catches up.
+- **License headers**: every `.java` file must start with the GPL header from `HEADER`. The mycila license plugin auto-adds headers at `generate-sources` and `strictCheck` fails `verify` on incorrect ones. Run `mvn generate-sources` after adding files so headers exist before committing.
 
-- Maven build, `maven.compiler.source/target = 8`
-- Dependency stack: `io.netty:netty-all` 4.1.x, Guava, `slf4j-api` + `logback-classic`, JUnit 4 (`junit:4.13.2`, test scope)
-- Root package: `com.seayar.modbus4j`
-- Every `.java` file must start with the GPL header (see the `HEADER` file in the reference repo). `com.mycila:license-maven-plugin` 3.0 with `strictCheck=true` runs at the `generate-sources` phase and fails the build on any missing/incorrect header. Adds every new file's header before committing.
-- Typical package layout: `base/` (locators, `BatchRead`, `DataType`), `client/` (Tcp/Rtu master+slave clients and factories), `codec/` (`tcp/`, `rtu/`, `m2m/`, `ping/`, `util/`), `core/` (`func/request`, `func/response`, `protocol/`, `common/util`), plus `handler/`, `sender/`, `channel/`, `cache/`, `schedule/`, `event/`
-- No mock framework in tests. The reference `ModbusClientTest` requires a live device/simulator on `127.0.0.1:502` and is not self-contained; prefer self-contained tests in the new project.
+## Conventions
 
-## Build
-
-- Compile/package: `mvn package` (add the license plugin + `HEADER` when scaffolding, or headers won't be enforced)
-- Tests: JUnit 4 via `mvn test`
+- Root package `com.seayar.modbus4j`; layout: `base/` (DataType, FunctionCode, RegisterRange), `locator/`, `msg/` (requests/responses + `MessageUtil` registry), `codec/`, `transport/`, `ip/`, `serial/`, `concurrent/`, `poll/`, `net/`, `exception/`, `util/`.
+- Minimal deps: Netty (transport/codec/handler), slf4j-api. logback-classic and junit are test-only.
+- Java 8 syntax only. No comments unless they add meaning.
+- Commit with conventional messages; the repo-local git identity is `Seayar <seayar@seayar.com>`.
+- Docs: `README.md` (EN) + `README.zh-CN.md` (CN) must stay in sync.
