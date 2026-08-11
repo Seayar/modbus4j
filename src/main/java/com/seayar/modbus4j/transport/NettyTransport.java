@@ -32,6 +32,7 @@ import com.seayar.modbus4j.ip.IpParameters;
 import com.seayar.modbus4j.msg.AbstractModbusRequest;
 import com.seayar.modbus4j.msg.AbstractModbusResponse;
 import com.seayar.modbus4j.msg.ExceptionResponse;
+import com.seayar.modbus4j.net.ChannelPipelineCustomizer;
 import com.seayar.modbus4j.net.ModbusChannelInitializer;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -41,8 +42,12 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -55,43 +60,116 @@ public class NettyTransport implements ModbusTransport {
     private final PendingRequests pendingRequests = new PendingRequests();
     private final TransactionIdGenerator transactionIdGenerator = new TransactionIdGenerator();
     private final AdaptiveConcurrency adaptiveConcurrency;
+    private final ChannelPipelineCustomizer pipelineCustomizer;
+    private final Object concurrencyLock = new Object();
 
     private EventLoopGroup eventLoopGroup;
+    private ScheduledExecutorService maintenanceExecutor;
     private Channel channel;
     private volatile boolean initialized;
+    private volatile boolean destroyed;
+    private volatile int allowedConcurrency;
 
     public NettyTransport(IpParameters parameters, ModbusCodecType codecType, boolean synchronous,
             AdaptiveConcurrency adaptiveConcurrency) {
+        this(parameters, codecType.getCodec(), synchronous, adaptiveConcurrency, null);
+    }
+
+    public NettyTransport(IpParameters parameters, ModbusCodecType codecType, boolean synchronous,
+            AdaptiveConcurrency adaptiveConcurrency, ChannelPipelineCustomizer pipelineCustomizer) {
+        this(parameters, codecType.getCodec(), synchronous, adaptiveConcurrency, pipelineCustomizer);
+    }
+
+    public NettyTransport(IpParameters parameters, ModbusCodec codec, boolean synchronous,
+            AdaptiveConcurrency adaptiveConcurrency, ChannelPipelineCustomizer pipelineCustomizer) {
         this.parameters = parameters;
-        this.codec = codecType.getCodec();
+        this.codec = codec;
         this.synchronous = synchronous;
         this.adaptiveConcurrency = adaptiveConcurrency;
+        this.pipelineCustomizer = pipelineCustomizer;
+        this.allowedConcurrency = adaptiveConcurrency == null ? 1 : adaptiveConcurrency.getCurrentInFlight();
     }
 
     @Override
     public void init() throws ModbusInitException {
+        destroyed = false;
         eventLoopGroup = new NioEventLoopGroup(0, new DaemonThreadFactory());
-        Bootstrap bootstrap = new Bootstrap();
-        bootstrap.group(eventLoopGroup)
-                .channel(NioSocketChannel.class)
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, parameters.getConnectTimeoutMillis())
-                .option(ChannelOption.TCP_NODELAY, parameters.isTcpNoDelay())
-                .option(ChannelOption.SO_KEEPALIVE, parameters.isKeepAlive())
-                .handler(new ModbusChannelInitializer(codec, pendingRequests, parameters.getReadTimeoutMillis()));
+        maintenanceExecutor = Executors.newSingleThreadScheduledExecutor(new DaemonThreadFactory());
+        startMaintenance();
         try {
-            ChannelFuture future = bootstrap.connect(parameters.getHost(), parameters.getPort()).sync();
+            ChannelFuture future = createBootstrap().connect(parameters.getHost(), parameters.getPort()).sync();
             channel = future.channel();
+            channel.closeFuture().addListener(f -> scheduleReconnect());
             initialized = true;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            shutdownResources();
             throw new ModbusInitException(e);
         } catch (Exception e) {
-            shutdownGroup();
+            shutdownResources();
             throw new ModbusInitException(e);
         }
     }
 
-    private void shutdownGroup() {
+    private Bootstrap createBootstrap() {
+        Bootstrap bootstrap = new Bootstrap();
+        return bootstrap.group(eventLoopGroup)
+                .channel(NioSocketChannel.class)
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, parameters.getConnectTimeoutMillis())
+                .option(ChannelOption.TCP_NODELAY, parameters.isTcpNoDelay())
+                .option(ChannelOption.SO_KEEPALIVE, parameters.isKeepAlive())
+                .handler(new ModbusChannelInitializer(codec, pendingRequests, parameters.getReadTimeoutMillis(),
+                        pipelineCustomizer, parameters.isAutoReconnect()));
+    }
+
+    private void startMaintenance() {
+        maintenanceExecutor.scheduleWithFixedDelay(() -> pendingRequests.expire(System.currentTimeMillis()),
+                500, 500, TimeUnit.MILLISECONDS);
+        if (adaptiveConcurrency != null)
+            maintenanceExecutor.scheduleWithFixedDelay(this::adjustConcurrency, 1000, 1000, TimeUnit.MILLISECONDS);
+    }
+
+    private void adjustConcurrency() {
+        synchronized (concurrencyLock) {
+            int newValue = adaptiveConcurrency.adjust();
+            if (newValue != allowedConcurrency) {
+                allowedConcurrency = newValue;
+                concurrencyLock.notifyAll();
+            }
+        }
+    }
+
+    private void scheduleReconnect() {
+        if (!parameters.isAutoReconnect() || destroyed)
+            return;
+        try {
+            maintenanceExecutor.schedule(this::reconnect, parameters.getReconnectDelayMillis(), TimeUnit.MILLISECONDS);
+        } catch (RejectedExecutionException e) {
+        }
+    }
+
+    private void reconnect() {
+        if (destroyed || !parameters.isAutoReconnect())
+            return;
+        try {
+            ChannelFuture future = createBootstrap().connect(parameters.getHost(), parameters.getPort()).await();
+            if (future.isSuccess()) {
+                channel = future.channel();
+                channel.closeFuture().addListener(f -> scheduleReconnect());
+                initialized = true;
+            } else {
+                scheduleReconnect();
+            }
+        } catch (Exception e) {
+            scheduleReconnect();
+        }
+    }
+
+    private void shutdownResources() {
+        if (maintenanceExecutor != null) {
+            maintenanceExecutor.shutdownNow();
+            maintenanceExecutor = null;
+        }
         if (eventLoopGroup != null) {
             eventLoopGroup.shutdownGracefully(0, 1, TimeUnit.SECONDS);
             eventLoopGroup = null;
@@ -100,13 +178,14 @@ public class NettyTransport implements ModbusTransport {
 
     @Override
     public void destroy() {
+        destroyed = true;
         initialized = false;
         pendingRequests.close();
         if (channel != null) {
             channel.close().awaitUninterruptibly();
             channel = null;
         }
-        shutdownGroup();
+        shutdownResources();
     }
 
     @Override
@@ -135,18 +214,42 @@ public class NettyTransport implements ModbusTransport {
     @Override
     public Future<AbstractModbusResponse> sendAsync(AbstractModbusRequest request) throws ModbusTransportException {
         checkActive();
+        acquireConcurrencySlot();
         int transactionId = synchronous ? -1 : transactionIdGenerator.next();
         long startNanos = System.nanoTime();
-        java.util.concurrent.CompletableFuture<Object> future = pendingRequests
+        CompletableFuture<Object> future = pendingRequests
                 .putAndGetFuture(transactionId, parameters.getReadTimeoutMillis());
-        java.util.concurrent.CompletableFuture<AbstractModbusResponse> result = future
+        CompletableFuture<AbstractModbusResponse> result = future
                 .thenApply(msg -> (AbstractModbusResponse) msg)
                 .whenComplete((resp, t) -> {
-                    if (adaptiveConcurrency != null)
+                    if (adaptiveConcurrency != null) {
                         adaptiveConcurrency.record(t == null, System.nanoTime() - startNanos);
+                        synchronized (concurrencyLock) {
+                            concurrencyLock.notifyAll();
+                        }
+                    }
                 });
         channel.writeAndFlush(new ModbusFrame(transactionId, request));
         return result;
+    }
+
+    private void acquireConcurrencySlot() throws ModbusTransportException {
+        if (adaptiveConcurrency == null)
+            return;
+        synchronized (concurrencyLock) {
+            long deadline = System.currentTimeMillis() + parameters.getReadTimeoutMillis();
+            while (pendingRequests.size() >= allowedConcurrency) {
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0)
+                    throw new ModbusTransportException("Timed out waiting for a concurrency slot");
+                try {
+                    concurrencyLock.wait(Math.min(remaining, 100));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new ModbusTransportException("Interrupted while waiting for a concurrency slot", e);
+                }
+            }
+        }
     }
 
     private void checkActive() throws ModbusTransportException {
@@ -161,11 +264,15 @@ public class NettyTransport implements ModbusTransport {
 
     @Override
     public int getMaxInFlight() {
-        return adaptiveConcurrency == null ? 1 : adaptiveConcurrency.getCurrentInFlight();
+        return allowedConcurrency;
     }
 
     @Override
     public void setMaxInFlight(int maxInFlight) {
+        synchronized (concurrencyLock) {
+            allowedConcurrency = Math.max(1, maxInFlight);
+            concurrencyLock.notifyAll();
+        }
     }
 
     private static class DaemonThreadFactory implements ThreadFactory {

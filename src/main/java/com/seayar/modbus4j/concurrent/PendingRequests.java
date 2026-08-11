@@ -25,6 +25,7 @@ import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeoutException;
 
 public class PendingRequests {
     private final Map<Integer, PendingRequest> requests = new ConcurrentHashMap<>();
@@ -75,8 +76,10 @@ public class PendingRequests {
 
     public void expire(long now) {
         for (PendingRequest request : requests.values()) {
-            if (request.isExpired(now))
+            if (request.isExpired(now)) {
                 remove(request.getTransactionId());
+                request.getFuture().completeExceptionally(new TimeoutException("response timeout"));
+            }
         }
     }
 

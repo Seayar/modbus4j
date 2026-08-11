@@ -31,6 +31,10 @@ public class RtuMaster extends ModbusMaster {
         super(createTransport(parameters), validateResponse);
     }
 
+    public RtuMaster(ModbusTransport transport, boolean validateResponse) {
+        super(transport, validateResponse);
+    }
+
     private static ModbusTransport createTransport(IpParameters parameters) {
         return new NettyTransport(parameters, ModbusCodecType.RTU, true, null);
     }

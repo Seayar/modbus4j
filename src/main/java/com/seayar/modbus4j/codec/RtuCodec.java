@@ -82,6 +82,10 @@ public class RtuCodec implements ModbusCodec {
             case 2:
             case 3:
             case 4:
+            case 17:
+            case 20:
+            case 21:
+            case 23:
                 if (in.readableBytes() < 1)
                     return -1;
                 return 1 + in.getUnsignedByte(in.readerIndex());
@@ -90,6 +94,10 @@ public class RtuCodec implements ModbusCodec {
             case 15:
             case 16:
                 return 4;
+            case 7:
+                return 1;
+            case 22:
+                return 6;
         }
         return -1;
     }

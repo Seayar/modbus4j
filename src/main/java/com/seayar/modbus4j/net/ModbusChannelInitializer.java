@@ -30,19 +30,35 @@ public class ModbusChannelInitializer extends ChannelInitializer<Channel> {
     private final ModbusCodec codec;
     private final PendingRequests pendingRequests;
     private final int readTimeoutMillis;
+    private final ChannelPipelineCustomizer pipelineCustomizer;
+    private final boolean autoReconnect;
 
     public ModbusChannelInitializer(ModbusCodec codec, PendingRequests pendingRequests, int readTimeoutMillis) {
+        this(codec, pendingRequests, readTimeoutMillis, null, false);
+    }
+
+    public ModbusChannelInitializer(ModbusCodec codec, PendingRequests pendingRequests, int readTimeoutMillis,
+            ChannelPipelineCustomizer pipelineCustomizer) {
+        this(codec, pendingRequests, readTimeoutMillis, pipelineCustomizer, false);
+    }
+
+    public ModbusChannelInitializer(ModbusCodec codec, PendingRequests pendingRequests, int readTimeoutMillis,
+            ChannelPipelineCustomizer pipelineCustomizer, boolean autoReconnect) {
         this.codec = codec;
         this.pendingRequests = pendingRequests;
         this.readTimeoutMillis = readTimeoutMillis;
+        this.pipelineCustomizer = pipelineCustomizer;
+        this.autoReconnect = autoReconnect;
     }
 
     @Override
     protected void initChannel(Channel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
+        if (pipelineCustomizer != null)
+            pipelineCustomizer.customize(pipeline);
         pipeline.addLast("frameDecoder", new ModbusFrameDecoder(codec));
         pipeline.addLast("frameEncoder", new ModbusFrameEncoder(codec));
         pipeline.addLast("idle", new IdleStateHandler(readTimeoutMillis, 0, 0));
-        pipeline.addLast("responseHandler", new ModbusResponseHandler(pendingRequests));
+        pipeline.addLast("responseHandler", new ModbusResponseHandler(pendingRequests, autoReconnect));
     }
 }

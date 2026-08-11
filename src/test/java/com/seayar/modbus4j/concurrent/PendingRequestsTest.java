@@ -90,12 +90,13 @@ public class PendingRequestsTest {
     }
 
     @Test
-    public void testExpire() {
+    public void testExpire() throws Exception {
         PendingRequests pending = new PendingRequests();
-        pending.putAndGetFuture(1, 1000);
+        CompletableFuture<Object> future = pending.putAndGetFuture(1, 1000);
         long now = System.currentTimeMillis() + 5000;
         pending.expire(now);
         assertTrue(pending.isEmpty());
+        assertTrue(future.isCompletedExceptionally());
     }
 
     @Test

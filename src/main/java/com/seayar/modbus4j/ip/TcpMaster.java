@@ -31,6 +31,10 @@ public class TcpMaster extends ModbusMaster {
         super(createTransport(parameters), validateResponse);
     }
 
+    public TcpMaster(ModbusTransport transport, boolean validateResponse) {
+        super(transport, validateResponse);
+    }
+
     private static ModbusTransport createTransport(IpParameters parameters) {
         AdaptiveConcurrency concurrency = new AdaptiveConcurrency(1, 32, 100_000_000L, 0.1);
         return new NettyTransport(parameters, ModbusCodecType.TCP, false, concurrency);

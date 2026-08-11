@@ -47,6 +47,18 @@ public final class MessageUtil {
                 return new WriteCoilsResponse(slaveId, data);
             case FunctionCode.WRITE_REGISTERS:
                 return new WriteRegistersResponse(slaveId, data);
+            case FunctionCode.READ_EXCEPTION_STATUS:
+                return new ReadExceptionStatusResponse(slaveId, data);
+            case FunctionCode.REPORT_SLAVE_ID:
+                return new ReportSlaveIdResponse(slaveId, data);
+            case FunctionCode.READ_FILE_RECORD:
+                return new ReadFileRecordResponse(slaveId, data);
+            case FunctionCode.WRITE_FILE_RECORD:
+                return new WriteFileRecordResponse(slaveId, data);
+            case FunctionCode.WRITE_MASK_REGISTER:
+                return new WriteMaskRegisterResponse(slaveId, data);
+            case FunctionCode.READ_WRITE_MULTIPLE_REGISTERS:
+                return new ReadWriteMultipleRegistersResponse(slaveId, data);
         }
         throw new IllegalArgumentException("Unsupported function code: " + (functionCode & 0xff));
     }
@@ -71,6 +83,18 @@ public final class MessageUtil {
                 return new WriteCoilsResponse(slaveId, data);
             case FunctionCode.WRITE_REGISTERS:
                 return new WriteRegistersResponse(slaveId, data);
+            case FunctionCode.READ_EXCEPTION_STATUS:
+                return new ReadExceptionStatusResponse(slaveId, data);
+            case FunctionCode.REPORT_SLAVE_ID:
+                return new ReportSlaveIdResponse(slaveId, data);
+            case FunctionCode.READ_FILE_RECORD:
+                return new ReadFileRecordResponse(slaveId, data);
+            case FunctionCode.WRITE_FILE_RECORD:
+                return new WriteFileRecordResponse(slaveId, data);
+            case FunctionCode.WRITE_MASK_REGISTER:
+                return new WriteMaskRegisterResponse(slaveId, data);
+            case FunctionCode.READ_WRITE_MULTIPLE_REGISTERS:
+                return new ReadWriteMultipleRegistersResponse(slaveId, data);
         }
         throw new IllegalArgumentException("Unsupported function code: " + (functionCode & 0xff));
     }

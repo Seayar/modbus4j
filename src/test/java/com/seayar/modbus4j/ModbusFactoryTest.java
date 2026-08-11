@@ -19,15 +19,20 @@
  */
 package com.seayar.modbus4j;
 
+import com.seayar.modbus4j.codec.ModbusCodecType;
+import com.seayar.modbus4j.concurrent.AdaptiveConcurrency;
 import com.seayar.modbus4j.ip.IpParameters;
 import com.seayar.modbus4j.ip.TcpMaster;
 import com.seayar.modbus4j.serial.AsciiMaster;
 import com.seayar.modbus4j.serial.RtuMaster;
+import com.seayar.modbus4j.transport.ModbusTransport;
+import com.seayar.modbus4j.transport.NettyTransport;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 public class ModbusFactoryTest {
@@ -39,6 +44,28 @@ public class ModbusFactoryTest {
         assertNotNull(master);
         assertTrue(master instanceof TcpMaster);
         assertFalse(master.isInitialized());
+    }
+
+    @Test
+    public void testCreateTcpMasterWithCustomTransport() {
+        ModbusTransport transport = new NettyTransport(new IpParameters(), ModbusCodecType.TCP, false,
+                new AdaptiveConcurrency(1, 4, 100_000_000L, 0.1));
+        TcpMaster master = new TcpMaster(transport, true);
+        assertSame(transport, master.getTransport());
+    }
+
+    @Test
+    public void testCreateRtuMasterWithCustomTransport() {
+        ModbusTransport transport = new NettyTransport(new IpParameters(), ModbusCodecType.RTU, true, null);
+        RtuMaster master = new RtuMaster(transport, true);
+        assertSame(transport, master.getTransport());
+    }
+
+    @Test
+    public void testCreateAsciiMasterWithCustomTransport() {
+        ModbusTransport transport = new NettyTransport(new IpParameters(), ModbusCodecType.ASCII, true, null);
+        AsciiMaster master = new AsciiMaster(transport, false);
+        assertSame(transport, master.getTransport());
     }
 
     @Test

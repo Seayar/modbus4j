@@ -31,6 +31,10 @@ public class AsciiMaster extends ModbusMaster {
         super(createTransport(parameters), validateResponse);
     }
 
+    public AsciiMaster(ModbusTransport transport, boolean validateResponse) {
+        super(transport, validateResponse);
+    }
+
     private static ModbusTransport createTransport(IpParameters parameters) {
         return new NettyTransport(parameters, ModbusCodecType.ASCII, true, null);
     }

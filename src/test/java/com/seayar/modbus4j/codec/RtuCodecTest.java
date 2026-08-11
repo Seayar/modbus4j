@@ -150,6 +150,84 @@ public class RtuCodecTest {
         assertTrue(decoded.getMessage() instanceof com.seayar.modbus4j.msg.ReadCoilsResponse);
     }
 
+    @Test
+    public void testDecodeExceptionStatus() {
+        RtuCodec codec = new RtuCodec();
+        byte[] payload = new byte[]{0x01, 0x07, 0x05};
+        int crc = RtuCrcUtil.computeRtuCrc(payload);
+        ByteBuf in = Unpooled.buffer();
+        in.writeBytes(payload);
+        in.writeByte(crc & 0xff);
+        in.writeByte((crc >> 8) & 0xff);
+        ModbusFrame decoded = codec.decode(in);
+        assertNotNull(decoded);
+        assertTrue(decoded.getMessage() instanceof com.seayar.modbus4j.msg.ReadExceptionStatusResponse);
+    }
+
+    @Test
+    public void testDecodeMaskRegister() {
+        RtuCodec codec = new RtuCodec();
+        byte[] payload = new byte[]{0x01, 0x16, 0x00, 0x10, 0x00, (byte) 0xff, 0x00, 0x0f};
+        int crc = RtuCrcUtil.computeRtuCrc(payload);
+        ByteBuf in = Unpooled.buffer();
+        in.writeBytes(payload);
+        in.writeByte(crc & 0xff);
+        in.writeByte((crc >> 8) & 0xff);
+        ModbusFrame decoded = codec.decode(in);
+        assertNotNull(decoded);
+        assertTrue(decoded.getMessage() instanceof com.seayar.modbus4j.msg.WriteMaskRegisterResponse);
+    }
+
+    @Test
+    public void testDecodeReadFileRecord() {
+        RtuCodec codec = new RtuCodec();
+        byte[] payload = new byte[]{0x01, 0x14, 0x07, 0x06, 0x00, 0x02, 0x12, 0x34, 0x56, 0x78};
+        int crc = RtuCrcUtil.computeRtuCrc(payload);
+        ByteBuf in = Unpooled.buffer();
+        in.writeBytes(payload);
+        in.writeByte(crc & 0xff);
+        in.writeByte((crc >> 8) & 0xff);
+        ModbusFrame decoded = codec.decode(in);
+        assertNotNull(decoded);
+        assertTrue(decoded.getMessage() instanceof com.seayar.modbus4j.msg.ReadFileRecordResponse);
+        assertEquals(0, in.readableBytes());
+    }
+
+    @Test
+    public void testDecodeReadWriteMultiple() {
+        RtuCodec codec = new RtuCodec();
+        byte[] payload = new byte[]{0x01, 0x17, 0x02, 0x00, 0x05};
+        int crc = RtuCrcUtil.computeRtuCrc(payload);
+        ByteBuf in = Unpooled.buffer();
+        in.writeBytes(payload);
+        in.writeByte(crc & 0xff);
+        in.writeByte((crc >> 8) & 0xff);
+        ModbusFrame decoded = codec.decode(in);
+        assertNotNull(decoded);
+        assertTrue(decoded.getMessage() instanceof com.seayar.modbus4j.msg.ReadWriteMultipleRegistersResponse);
+    }
+
+    @Test
+    public void testDecodeIncompleteByteCount() {
+        RtuCodec codec = new RtuCodec();
+        ByteBuf in = Unpooled.wrappedBuffer(new byte[]{0x01, 0x11});
+        assertNull(codec.decode(in));
+    }
+
+    @Test
+    public void testDecodeIncompletePayload() {
+        RtuCodec codec = new RtuCodec();
+        ByteBuf in = Unpooled.wrappedBuffer(new byte[]{0x01, 0x11, 0x04, 0x63});
+        assertNull(codec.decode(in));
+    }
+
+    @Test
+    public void testDecodeUnsupportedFunction() {
+        RtuCodec codec = new RtuCodec();
+        ByteBuf in = Unpooled.wrappedBuffer(new byte[]{0x01, 0x2b, 0x00});
+        assertNull(codec.decode(in));
+    }
+
     static final class RtuCrcUtil {
         private RtuCrcUtil() {}
 

@@ -35,21 +35,35 @@ import com.seayar.modbus4j.locator.StringLocator;
 import com.seayar.modbus4j.msg.AbstractModbusRequest;
 import com.seayar.modbus4j.msg.AbstractModbusResponse;
 import com.seayar.modbus4j.msg.ExceptionResponse;
+import com.seayar.modbus4j.msg.FileRecord;
 import com.seayar.modbus4j.msg.ReadCoilsRequest;
 import com.seayar.modbus4j.msg.ReadCoilsResponse;
 import com.seayar.modbus4j.msg.ReadDiscreteInputsRequest;
 import com.seayar.modbus4j.msg.ReadDiscreteInputsResponse;
+import com.seayar.modbus4j.msg.ReadExceptionStatusRequest;
+import com.seayar.modbus4j.msg.ReadExceptionStatusResponse;
+import com.seayar.modbus4j.msg.ReadFileRecordRequest;
+import com.seayar.modbus4j.msg.ReadFileRecordResponse;
 import com.seayar.modbus4j.msg.ReadHoldingRegistersRequest;
 import com.seayar.modbus4j.msg.ReadHoldingRegistersResponse;
 import com.seayar.modbus4j.msg.ReadInputRegistersRequest;
 import com.seayar.modbus4j.msg.ReadInputRegistersResponse;
 import com.seayar.modbus4j.msg.ReadResponse;
+import com.seayar.modbus4j.msg.ReadWriteMultipleRegistersRequest;
+import com.seayar.modbus4j.msg.ReadWriteMultipleRegistersResponse;
+import com.seayar.modbus4j.msg.ReportSlaveIdRequest;
+import com.seayar.modbus4j.msg.ReportSlaveIdResponse;
 import com.seayar.modbus4j.msg.WriteCoilRequest;
 import com.seayar.modbus4j.msg.WriteCoilsRequest;
+import com.seayar.modbus4j.msg.WriteFileRecordRequest;
+import com.seayar.modbus4j.msg.WriteFileRecordResponse;
+import com.seayar.modbus4j.msg.WriteMaskRegisterRequest;
 import com.seayar.modbus4j.msg.WriteRegisterRequest;
 import com.seayar.modbus4j.msg.WriteRegistersRequest;
+import com.seayar.modbus4j.msg.WriteResponse;
 import com.seayar.modbus4j.transport.ModbusTransport;
 
+import java.util.Collections;
 import java.util.List;
 
 public abstract class ModbusMaster {
@@ -229,6 +243,54 @@ public abstract class ModbusMaster {
     private void checkException(AbstractModbusResponse response) throws ModbusCodeException {
         if (response instanceof ExceptionResponse)
             throw ((ExceptionResponse) response).toException();
+    }
+
+    public byte getExceptionStatus(int slaveId) throws ModbusTransportException, ModbusCodeException {
+        AbstractModbusResponse response = request(new ReadExceptionStatusRequest(slaveId));
+        checkException(response);
+        return (byte) ((ReadExceptionStatusResponse) response).getExceptionStatus();
+    }
+
+    public byte[] reportSlaveId(int slaveId) throws ModbusTransportException, ModbusCodeException {
+        AbstractModbusResponse response = request(new ReportSlaveIdRequest(slaveId));
+        checkException(response);
+        return ((ReportSlaveIdResponse) response).getData();
+    }
+
+    public List<FileRecord> readFileRecords(int slaveId, List<FileRecord> records)
+            throws ModbusTransportException, ModbusCodeException {
+        AbstractModbusResponse response = request(new ReadFileRecordRequest(slaveId, records));
+        checkException(response);
+        return ((ReadFileRecordResponse) response).getFileData();
+    }
+
+    public byte[] readFileRecord(int slaveId, int fileNumber, int recordNumber, int recordLength)
+            throws ModbusTransportException, ModbusCodeException {
+        return readFileRecords(slaveId, Collections.singletonList(
+                new FileRecord(fileNumber, recordNumber, recordLength))).get(0).getData();
+    }
+
+    public void writeFileRecords(int slaveId, List<FileRecord> records)
+            throws ModbusTransportException, ModbusCodeException {
+        checkException(request(new WriteFileRecordRequest(slaveId, records)));
+    }
+
+    public void writeFileRecord(int slaveId, int fileNumber, int recordNumber, byte[] data)
+            throws ModbusTransportException, ModbusCodeException {
+        writeFileRecords(slaveId, Collections.singletonList(new FileRecord(fileNumber, recordNumber, data)));
+    }
+
+    public void writeMaskRegister(int slaveId, int offset, int andMask, int orMask)
+            throws ModbusTransportException, ModbusCodeException {
+        checkException(request(new WriteMaskRegisterRequest(slaveId, offset, andMask, orMask)));
+    }
+
+    public byte[] readWriteMultipleRegisters(int slaveId, int readStartOffset, int readQuantity,
+            int writeStartOffset, byte[] writeData) throws ModbusTransportException, ModbusCodeException {
+        AbstractModbusResponse response = request(new ReadWriteMultipleRegistersRequest(slaveId, readStartOffset,
+                readQuantity, writeStartOffset, writeData));
+        checkException(response);
+        return ((ReadWriteMultipleRegistersResponse) response).getData();
     }
 
     protected AbstractModbusResponse request(AbstractModbusRequest request)

@@ -24,12 +24,19 @@ import com.seayar.modbus4j.concurrent.PendingRequest;
 import com.seayar.modbus4j.concurrent.PendingRequests;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.timeout.IdleStateEvent;
 
 public class ModbusResponseHandler extends SimpleChannelInboundHandler<ModbusFrame> {
     private final PendingRequests pendingRequests;
+    private final boolean autoReconnect;
 
     public ModbusResponseHandler(PendingRequests pendingRequests) {
+        this(pendingRequests, false);
+    }
+
+    public ModbusResponseHandler(PendingRequests pendingRequests, boolean autoReconnect) {
         this.pendingRequests = pendingRequests;
+        this.autoReconnect = autoReconnect;
     }
 
     @Override
@@ -41,7 +48,18 @@ public class ModbusResponseHandler extends SimpleChannelInboundHandler<ModbusFra
             request = pendingRequests.remove(frame.getTransactionId());
         if (request != null)
             request.getFuture().complete(frame.getMessage());
-    }    @Override
+    }
+
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        if (autoReconnect && evt instanceof IdleStateEvent) {
+            ctx.close();
+        } else {
+            super.userEventTriggered(ctx, evt);
+        }
+    }
+
+    @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         pendingRequests.failAll(cause);
         ctx.close();

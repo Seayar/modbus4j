@@ -60,6 +60,7 @@ public class ExceptionTest {
         assertNull(new ModbusInitException().getMessage());
         assertEquals("msg", new ModbusInitException("msg").getMessage());
         Throwable cause = new RuntimeException("cause");
+        assertEquals("msg", new ModbusInitException("msg", cause).getMessage());
         assertSame(cause, new ModbusInitException(cause).getCause());
     }
 
@@ -68,6 +69,7 @@ public class ExceptionTest {
         assertNull(new ModbusIdException().getMessage());
         assertEquals("msg", new ModbusIdException("msg").getMessage());
         Throwable cause = new RuntimeException("cause");
+        assertEquals("msg", new ModbusIdException("msg", cause).getMessage());
         assertSame(cause, new ModbusIdException(cause).getCause());
     }
 }

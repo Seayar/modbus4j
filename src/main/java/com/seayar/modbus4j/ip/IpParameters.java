@@ -31,6 +31,8 @@ public class IpParameters {
     private boolean keepAlive = true;
     private boolean tcpNoDelay = true;
     private int soLinger;
+    private boolean autoReconnect;
+    private int reconnectDelayMillis = 1000;
 
     public String getHost() {
         return host;
@@ -94,6 +96,22 @@ public class IpParameters {
 
     public void setSoLinger(int soLinger) {
         this.soLinger = soLinger;
+    }
+
+    public boolean isAutoReconnect() {
+        return autoReconnect;
+    }
+
+    public void setAutoReconnect(boolean autoReconnect) {
+        this.autoReconnect = autoReconnect;
+    }
+
+    public int getReconnectDelayMillis() {
+        return reconnectDelayMillis;
+    }
+
+    public void setReconnectDelayMillis(int reconnectDelayMillis) {
+        this.reconnectDelayMillis = reconnectDelayMillis;
     }
 
     public String getAddress() {

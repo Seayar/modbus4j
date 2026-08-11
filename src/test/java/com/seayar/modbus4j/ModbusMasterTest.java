@@ -278,4 +278,48 @@ public class ModbusMasterTest {
         assertTrue(master.getValue(locator));
         master.destroy();
     }
+
+    @Test(timeout = 15000)
+    public void testGetValueUnsupportedNumericRange() throws Exception {
+        ModbusMaster master = createMaster();
+        master.init();
+        BaseLocator<Number> locator = new com.seayar.modbus4j.locator.NumericLocator(1,
+                RegisterRange.COIL_STATUS, 0, DataType.TWO_BYTE_INT_UNSIGNED);
+        try {
+            master.getValue(locator);
+            org.junit.Assert.fail("expected exception");
+        } catch (ModbusTransportException expected) {
+        }
+        master.destroy();
+    }
+
+    @Test(timeout = 15000)
+    public void testGetValueRegisterBit() throws Exception {
+        ModbusMaster master = createMaster();
+        master.init();
+        BaseLocator<Boolean> locator = BaseLocator.holdingRegisterBit(1, 100, 0);
+        assertNotNull(master.getValue(locator));
+        master.destroy();
+    }
+
+    @Test(timeout = 15000)
+    public void testSetValueCoil() throws Exception {
+        ModbusMaster master = createMaster();
+        master.init();
+        master.setValue(BaseLocator.coilStatus(1, 0), true);
+        master.destroy();
+    }
+
+    @Test(timeout = 15000)
+    public void testBatchReadInputs() throws Exception {
+        ModbusMaster master = createMaster();
+        master.init();
+        BatchRead<String> batch = new BatchRead<>();
+        batch.addLocator("in", BaseLocator.inputStatus(1, 0));
+        batch.addLocator("reg", BaseLocator.inputRegister(1, 10, DataType.TWO_BYTE_INT_UNSIGNED));
+        BatchResults<String> results = master.send(batch);
+        assertNotNull(results.getValue("in"));
+        assertNotNull(results.getValue("reg"));
+        master.destroy();
+    }
 }

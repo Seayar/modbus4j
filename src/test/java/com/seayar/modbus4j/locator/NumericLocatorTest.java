@@ -296,4 +296,151 @@ public class NumericLocatorTest {
         byte[] data = shorts((short) 0x0001);
         locator.bytesToValue(data, 0);
     }
+
+    @Test
+    public void testTwoByteBcd() {
+        NumericLocator locator = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0, DataType.TWO_BYTE_BCD);
+        byte[] data = shorts((short) 0x1234);
+        assertEquals((short) 1234, locator.bytesToValue(data, 0));
+        assertEquals(0x1234, locator.valueToShorts((short) 1234)[0] & 0xffff);
+    }
+
+    @Test
+    public void testFourByteBcd() {
+        NumericLocator locator = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0, DataType.FOUR_BYTE_BCD);
+        byte[] data = shorts((short) 0x1234, (short) 0x5678);
+        assertEquals(12345678, locator.bytesToValue(data, 0).intValue());
+        short[] s = locator.valueToShorts(12345678);
+        assertEquals(0x1234, s[0] & 0xffff);
+        assertEquals(0x5678, s[1] & 0xffff);
+    }
+
+    @Test
+    public void testFourByteBcdSwapped() {
+        NumericLocator locator = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0,
+                DataType.FOUR_BYTE_BCD_SWAPPED);
+        byte[] data = shorts((short) 0x1234, (short) 0x5678);
+        assertEquals(56781234, locator.bytesToValue(data, 0).intValue());
+        short[] s = locator.valueToShorts(56781234);
+        assertEquals(0x1234, s[0] & 0xffff);
+        assertEquals(0x5678, s[1] & 0xffff);
+    }
+
+    @Test
+    public void testFourByteMod10k() {
+        NumericLocator locator = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0,
+                DataType.FOUR_BYTE_MOD_10K);
+        byte[] data = shorts((short) 1234, (short) 5678);
+        assertEquals(new BigInteger("12345678"), locator.bytesToValue(data, 0));
+        short[] s = locator.valueToShorts(new BigInteger("12345678"));
+        assertEquals(1234, s[0] & 0xffff);
+        assertEquals(5678, s[1] & 0xffff);
+    }
+
+    @Test
+    public void testSixByteMod10k() {
+        NumericLocator locator = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0,
+                DataType.SIX_BYTE_MOD_10K);
+        byte[] data = shorts((short) 1, (short) 2345, (short) 6789);
+        assertEquals(new BigInteger("123456789"), locator.bytesToValue(data, 0));
+        short[] s = locator.valueToShorts(new BigInteger("123456789"));
+        assertEquals(1, s[0] & 0xffff);
+        assertEquals(2345, s[1] & 0xffff);
+        assertEquals(6789, s[2] & 0xffff);
+    }
+
+    @Test
+    public void testEightByteMod10kSwapped() {
+        NumericLocator locator = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0,
+                DataType.EIGHT_BYTE_MOD_10K_SWAPPED);
+        byte[] data = shorts((short) 6789, (short) 2345, (short) 1, (short) 0);
+        assertEquals(new BigInteger("123456789"), locator.bytesToValue(data, 0));
+        short[] s = locator.valueToShorts(new BigInteger("123456789"));
+        assertEquals(6789, s[0] & 0xffff);
+        assertEquals(2345, s[1] & 0xffff);
+        assertEquals(1, s[2] & 0xffff);
+        assertEquals(0, s[3] & 0xffff);
+    }
+
+    @Test
+    public void testEightByteIntUnsignedMaxValue() {
+        NumericLocator locator = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0,
+                DataType.EIGHT_BYTE_INT_UNSIGNED);
+        byte[] data = shorts((short) 0xffff, (short) 0xffff, (short) 0xffff, (short) 0xffff);
+        BigInteger value = (BigInteger) locator.bytesToValue(data, 0);
+        assertEquals(new BigInteger("18446744073709551615"), value);
+        short[] s = locator.valueToShorts(new BigInteger("18446744073709551615"));
+        for (short v : s)
+            assertEquals((short) 0xffff, v);
+    }
+
+    @Test
+    public void testEightByteIntUnsignedSwapped() {
+        NumericLocator locator = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0,
+                DataType.EIGHT_BYTE_INT_UNSIGNED_SWAPPED);
+        byte[] data = shorts((short) 0xffff, (short) 0xffff, (short) 0xffff, (short) 0xffff);
+        BigInteger value = (BigInteger) locator.bytesToValue(data, 0);
+        assertEquals(new BigInteger("18446744073709551615"), value);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testUnsupportedWriteBcd() {
+        NumericLocator locator = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0,
+                DataType.TWO_BYTE_BCD);
+        locator.valueToShorts((short) 20000);
+    }
+
+    @Test
+    public void testMod10kSwappedReads() {
+        NumericLocator f = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0,
+                DataType.FOUR_BYTE_MOD_10K_SWAPPED);
+        assertEquals(new BigInteger("12345678"), f.bytesToValue(shorts((short) 5678, (short) 1234), 0));
+        NumericLocator s = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0,
+                DataType.SIX_BYTE_MOD_10K_SWAPPED);
+        assertEquals(new BigInteger("123456789"), s.bytesToValue(shorts((short) 6789, (short) 2345, (short) 1), 0));
+        NumericLocator e = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0,
+                DataType.EIGHT_BYTE_MOD_10K);
+        assertEquals(new BigInteger("1234567890123456"),
+                e.bytesToValue(shorts((short) 1234, (short) 5678, (short) 9012, (short) 3456), 0));
+    }
+
+    @Test
+    public void testMod10kWrites() {
+        NumericLocator f = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0,
+                DataType.FOUR_BYTE_MOD_10K_SWAPPED);
+        short[] sf = f.valueToShorts(12345678L);
+        assertEquals(5678, sf[0] & 0xffff);
+        assertEquals(1234, sf[1] & 0xffff);
+        NumericLocator s = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0,
+                DataType.SIX_BYTE_MOD_10K_SWAPPED);
+        short[] ss = s.valueToShorts(new BigInteger("123456789"));
+        assertEquals(6789, ss[0] & 0xffff);
+        NumericLocator e = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0,
+                DataType.EIGHT_BYTE_MOD_10K);
+        short[] se = e.valueToShorts(new BigInteger("1234567890"));
+        assertEquals(0, se[0] & 0xffff);
+        assertEquals(12, se[1] & 0xffff);
+        assertEquals(3456, se[2] & 0xffff);
+        assertEquals(7890, se[3] & 0xffff);
+    }
+
+    @Test
+    public void testEightByteFloatSwappedWrite() {
+        NumericLocator locator = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0,
+                DataType.EIGHT_BYTE_FLOAT_SWAPPED);
+        short[] s = locator.valueToShorts(1.0d);
+        assertEquals(4, s.length);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testUnsupportedValueToShorts() {
+        NumericLocator locator = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0, DataType.BINARY);
+        locator.valueToShorts(1);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testNegativeBcdWrite() {
+        NumericLocator locator = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0, DataType.TWO_BYTE_BCD);
+        locator.valueToShorts((short) -1);
+    }
 }
