@@ -41,6 +41,7 @@ public class BatchRead<K> {
     private boolean contiguousRequests = false;
     private boolean errorsInResults = false;
     private boolean exceptionsInResults = false;
+    private boolean splitOnException = true;
     private boolean cancel;
     private List<ReadFunctionGroup<K>> functionGroups;
 
@@ -67,6 +68,14 @@ public class BatchRead<K> {
 
     public void setExceptionsInResults(boolean exceptionsInResults) {
         this.exceptionsInResults = exceptionsInResults;
+    }
+
+    public boolean isSplitOnException() {
+        return splitOnException;
+    }
+
+    public void setSplitOnException(boolean splitOnException) {
+        this.splitOnException = splitOnException;
     }
 
     public int getMaxReadBitCount() {

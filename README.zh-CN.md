@@ -105,9 +105,9 @@ try {
     batch.addLocator("on", BaseLocator.coilStatus(1, 0));
     batch.addLocator("sn", BaseLocator.holdingRegisterString(1, 200, DataType.VARCHAR, 8));
     BatchResults<String> results = master.send(batch);
-    Float tempValue = results.getValue("temp");
-    Boolean on = results.getValue("on");
-    String serial = results.getValue("sn");
+    Object tempValue = results.getValue("temp");
+    Object on = results.getValue("on");
+    Object serial = results.getValue("sn");
 
     // 3) 写入
     master.setValue(BaseLocator.holdingRegister(1, 100, DataType.FOUR_BYTE_FLOAT), 23.5f);
@@ -242,7 +242,7 @@ batch.addLocator("a", BaseLocator.coilStatus(1, 0));
 batch.addLocator("b", BaseLocator.coilStatus(1, 10));
 batch.addLocator("c", BaseLocator.holdingRegister(1, 100, DataType.FOUR_BYTE_FLOAT));
 BatchResults<String> results = master.send(batch);          // 线上实际仅 1 条 FC1 + 1 条 FC3
-Float c = results.getValue("c");
+Object c = results.getValue("c");
 ```
 
 行为开关：
@@ -250,6 +250,7 @@ Float c = results.getValue("c");
 - **分组** —— 相同从站 + 区的点位合并为连续的 `ReadFunctionGroup`，200 个连续线圈只会变成 2 条 FC1（报文上限 2000 bit）而非 200 次单读。
 - `setMaxReadRegisterCount(int)` / `setMaxReadBitCount(int)` —— 覆盖默认 125 寄存器 / 2000 bit 报文上限。
 - `setContiguousRequests(true)` —— 仅合并真正连续的范围（有缺口处另起请求）。
+- `setSplitOnException(boolean)` —— **默认开启**。若分组读取遇到从站异常（例如从站禁止 0–100 范围内的 51–59 地址），会自动将范围对半拆分并递归重试：可读点位正常返回，只有最终仍失败的点位记为逐点错误，通过 `results.isError(key)` / `results.getErrors()` 识别，而不是整组失败。设为 `false` 恢复 fail-fast 行为（首个组异常即抛 `ModbusCodeException`）。
 - `setErrorsInResults(true)` —— 读取失败时在结果中记录错误标记而非抛出，用 `results.isError(key)` 判断。
 - `setExceptionsInResults(true)` —— Modbus 异常响应转为结果内错误而非抛出 `ModbusCodeException`。
 - `setCancel(true)` —— 在下一个分组边界中止批量循环。

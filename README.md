@@ -105,9 +105,9 @@ try {
     batch.addLocator("on", BaseLocator.coilStatus(1, 0));
     batch.addLocator("sn", BaseLocator.holdingRegisterString(1, 200, DataType.VARCHAR, 8));
     BatchResults<String> results = master.send(batch);
-    Float tempValue = results.getValue("temp");
-    Boolean on = results.getValue("on");
-    String serial = results.getValue("sn");
+    Object tempValue = results.getValue("temp");
+    Object on = results.getValue("on");
+    Object serial = results.getValue("sn");
 
     // 3) Write
     master.setValue(BaseLocator.holdingRegister(1, 100, DataType.FOUR_BYTE_FLOAT), 23.5f);
@@ -242,7 +242,7 @@ batch.addLocator("a", BaseLocator.coilStatus(1, 0));
 batch.addLocator("b", BaseLocator.coilStatus(1, 10));
 batch.addLocator("c", BaseLocator.holdingRegister(1, 100, DataType.FOUR_BYTE_FLOAT));
 BatchResults<String> results = master.send(batch);          // one FC1 + one FC3 over the wire
-Float c = results.getValue("c");
+Object c = results.getValue("c");
 ```
 
 Behaviour knobs:
@@ -250,6 +250,7 @@ Behaviour knobs:
 - **Grouping** — locators with the same slave + range are merged into contiguous `ReadFunctionGroup`s, so a batch of 200 consecutive coils becomes two FC1 requests (wire limit is 2000 bits) instead of 200 single reads.
 - `setMaxReadRegisterCount(int)` / `setMaxReadBitCount(int)` — override the default 125-register / 2000-bit wire limits.
 - `setContiguousRequests(true)` — only merge truly contiguous ranges (leaves gaps as separate requests).
+- `setSplitOnException(boolean)` — **on by default**. If a group read hits a slave exception (for example a slave that forbids addresses 51–59 inside a 0–100 range), the range is split in half and each half retried recursively. Readable points are returned normally; only the points that still fail become per-point errors — call `results.isError(key)` / `results.getErrors()` to find them — instead of the whole group failing. Set to `false` to restore fail-fast behaviour (`ModbusCodeException` on the first group exception).
 - `setErrorsInResults(true)` — a failed read stores an error marker in the results instead of throwing; check with `results.isError(key)`.
 - `setExceptionsInResults(true)` — a Modbus exception response becomes an in-result error instead of a thrown `ModbusCodeException`.
 - `setCancel(true)` — abort the batch loop at the next group boundary.

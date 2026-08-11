@@ -198,11 +198,41 @@ public abstract class ModbusMaster {
         for (ReadFunctionGroup<K> group : batch.getReadFunctionGroups()) {
             if (batch.isCancel())
                 break;
-            AbstractModbusRequest request = createReadRequest(group);
-            AbstractModbusResponse response = request(request, !batch.isExceptionsInResults());
-            processGroupResponse(batch, group, response, results);
+            sendReadGroup(batch, group, results);
         }
         return results;
+    }
+
+    private <K> void sendReadGroup(BatchRead<K> batch, ReadFunctionGroup<K> group, BatchResults<K> results)
+            throws ModbusTransportException, ModbusCodeException {
+        if (batch.isCancel())
+            return;
+        AbstractModbusRequest request = createReadRequest(group);
+        AbstractModbusResponse response = request(request, false);
+        if (!(response instanceof ExceptionResponse)) {
+            processGroupResponse(batch, group, response, results);
+            return;
+        }
+        List<KeyedModbusLocator<K>> locators = group.getLocators();
+        if (batch.isSplitOnException() && locators.size() > 1) {
+            int mid = locators.size() / 2;
+            sendReadGroup(batch, buildGroup(locators.subList(0, mid)), results);
+            sendReadGroup(batch, buildGroup(locators.subList(mid, locators.size())), results);
+        } else if (batch.isSplitOnException()) {
+            results.setError(locators.get(0).getKey());
+        } else if (batch.isExceptionsInResults()) {
+            for (KeyedModbusLocator<K> locator : locators)
+                results.setError(locator.getKey());
+        } else {
+            throw ((ExceptionResponse) response).toException();
+        }
+    }
+
+    private <K> ReadFunctionGroup<K> buildGroup(List<KeyedModbusLocator<K>> locators) {
+        ReadFunctionGroup<K> group = new ReadFunctionGroup<>(locators.get(0));
+        for (int i = 1; i < locators.size(); i++)
+            group.add(locators.get(i));
+        return group;
     }
 
     private AbstractModbusRequest createReadRequest(ReadFunctionGroup<?> group) {

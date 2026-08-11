@@ -14,5 +14,6 @@ All notable changes to this project will be documented in this file.
 - Adaptive in-flight throttling: `NettyTransport` gates requests to the `AdaptiveConcurrency` window and re-evaluates it periodically.
 - Auto-reconnect: `IpParameters.autoReconnect` / `reconnectDelayMillis`; idle connections are closed and re-established automatically.
 - Async response timeouts: pending requests are swept and complete exceptionally on `readTimeoutMillis`.
+- `BatchRead.splitOnException` (default on): a group read that hits a slave exception (e.g. illegal data address in the middle of a range) is split in half and retried recursively, so readable points are returned and only the truly failing points become per-point errors in `BatchResults` instead of failing the whole batch. Disable with `batch.setSplitOnException(false)` for fail-fast behaviour.
 - `samples/` module with runnable examples (embedded slave + TCP/RTU/ASCII/batch/polling/data-types/extended-FC/custom-codec/custom-pipeline/custom-transport).
 - Detailed bilingual usage + extension guide in README.

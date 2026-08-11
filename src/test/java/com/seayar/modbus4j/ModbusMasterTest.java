@@ -252,6 +252,7 @@ public class ModbusMasterTest {
         ModbusMaster master = createMaster();
         master.init();
         BatchRead<String> batch = new BatchRead<>();
+        batch.setSplitOnException(false);
         batch.addLocator("bad", BaseLocator.holdingRegister(0x7f, 100, DataType.TWO_BYTE_INT_UNSIGNED));
         master.send(batch);
         master.destroy();
