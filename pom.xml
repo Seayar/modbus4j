@@ -191,21 +191,10 @@
         </plugins>
     </build>
 
-    <distributionManagement>
-        <repository>
-            <id>seayar-nexus-releases</id>
-            <name>Seayar Nexus Releases</name>
-            <url>https://nexus.seayar.com/repository/maven-releases/</url>
-        </repository>
-        <snapshotRepository>
-            <id>seayar-nexus-snapshots</id>
-            <name>Seayar Nexus Snapshots</name>
-            <url>https://nexus.seayar.com/repository/maven-snapshots/</url>
-        </snapshotRepository>
-    </distributionManagement>
-
     <profiles>
-        <!-- Produces sources + javadoc jars and GPG-signs artifacts for publishing to a Maven repository. -->
+        <!-- Produces sources + javadoc jars, GPG-signs artifacts and uploads the
+             bundle to Maven Central via the Central Publisher Portal. Run:
+             mvn clean deploy -P release -->
         <profile>
             <id>release</id>
             <build>
@@ -254,6 +243,15 @@
                                 </goals>
                             </execution>
                         </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.9.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>
