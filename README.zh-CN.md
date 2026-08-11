@@ -1,6 +1,6 @@
 # modbus4j
 
-> 一个基于 Netty 的纯 Java Modbus 客户端库（`com.seayar:modbus4j`）。完整支持 **Modbus TCP**、**RTU over TCP**（串口转 TCP 网关场景）与 **ASCII over TCP** 主站模式，内置流水线式异步引擎、自适应并发度量、丰富的寄存器数据类型，并为非标准 Modbus 变体协议提供扩展接口。
+> 一个基于 Netty 的纯 Java Modbus 客户端库（`io.github.seayar:modbus4j`）。完整支持 **Modbus TCP**、**RTU over TCP**（串口转 TCP 网关场景）与 **ASCII over TCP** 主站模式，内置流水线式异步引擎、自适应并发度量、丰富的寄存器数据类型，并为非标准 Modbus 变体协议提供扩展接口。
 
 [English](./README.md) · [License](./LICENSE) · [Contributing](./CONTRIBUTING.md) · [Changelog](./CHANGELOG.md)
 
@@ -64,7 +64,7 @@ Maven 坐标：
 
 ```xml
 <dependency>
-    <groupId>com.seayar</groupId>
+    <groupId>io.github.seayar</groupId>
     <artifactId>modbus4j</artifactId>
     <version>1.0.0</version>
 </dependency>
@@ -81,10 +81,10 @@ mvn verify       # 完整构建，含行覆盖率 >= 95% 门禁
 ## 快速开始
 
 ```java
-import com.seayar.modbus4j.*;
-import com.seayar.modbus4j.base.DataType;
-import com.seayar.modbus4j.ip.IpParameters;
-import com.seayar.modbus4j.locator.*;
+import io.github.seayar.modbus4j.*;
+import io.github.seayar.modbus4j.base.DataType;
+import io.github.seayar.modbus4j.ip.IpParameters;
+import io.github.seayar.modbus4j.locator.*;
 
 IpParameters params = new IpParameters();
 params.setHost("192.168.1.10");
@@ -173,7 +173,7 @@ master.init();
 
 ### 点位工厂
 
-`BaseLocator`（包 `com.seayar.modbus4j.locator`）用于构造带类型的点位：
+`BaseLocator`（包 `io.github.seayar.modbus4j.locator`）用于构造带类型的点位：
 
 ```java
 BaseLocator<Boolean>  coil = BaseLocator.coilStatus(slaveId, offset);                 // FC 1
@@ -467,7 +467,7 @@ master.destroy();
 ## 工程结构
 
 ```
-com.seayar.modbus4j
+io.github.seayar.modbus4j
 ├── base/       DataType、FunctionCode、RegisterRange、ReadFunctionGroup、SlaveAndRange、KeyedModbusLocator
 ├── locator/    BaseLocator、NumericLocator、BinaryLocator、StringLocator、BatchRead、BatchResults
 ├── msg/        请求/响应类 + MessageUtil 注册表

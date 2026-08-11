@@ -23,7 +23,7 @@ mvn verify     # full build incl. >=95% line coverage gate
 
 ## Code style
 
-- Match the existing conventions: Java 8 syntax, `com.seayar.modbus4j` root package, minimal third-party dependencies.
+- Match the existing conventions: Java 8 syntax, `io.github.seayar.modbus4j` root package, minimal third-party dependencies.
 - No code comments unless they add meaning beyond the code.
 
 ## Git workflow

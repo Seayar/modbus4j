@@ -17,13 +17,13 @@ mvn install -DskipTests
 From the repository root, first start the demo slave on port 1502:
 
 ```bash
-mvn -f samples/pom.xml exec:java -Dexec.mainClass=com.seayar.modbus4j.samples.EmbeddedModbusSlave
+mvn -f samples/pom.xml exec:java -Dexec.mainClass=io.github.seayar.modbus4j.samples.EmbeddedModbusSlave
 ```
 
 Then, in a second terminal, run any sample:
 
 ```bash
-mvn -f samples/pom.xml exec:java -Dexec.mainClass=com.seayar.modbus4j.samples.TcpSample
+mvn -f samples/pom.xml exec:java -Dexec.mainClass=io.github.seayar.modbus4j.samples.TcpSample
 ```
 
 ## Sample index

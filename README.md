@@ -1,6 +1,6 @@
 # modbus4j
 
-> A pure-Java, Netty-based Modbus client library (`com.seayar:modbus4j`). Supports **Modbus TCP**, **RTU over TCP** (serial-to-TCP gateway) and **ASCII over TCP** master modes, a pipelined asynchronous engine, adaptive-concurrency metrics, rich register data types and an extension API for non-standard Modbus variants.
+> A pure-Java, Netty-based Modbus client library (`io.github.seayar:modbus4j`). Supports **Modbus TCP**, **RTU over TCP** (serial-to-TCP gateway) and **ASCII over TCP** master modes, a pipelined asynchronous engine, adaptive-concurrency metrics, rich register data types and an extension API for non-standard Modbus variants.
 
 [中文文档](./README.zh-CN.md) · [License](./LICENSE) · [Contributing](./CONTRIBUTING.md) · [Changelog](./CHANGELOG.md)
 
@@ -64,7 +64,7 @@ Maven coordinates:
 
 ```xml
 <dependency>
-    <groupId>com.seayar</groupId>
+    <groupId>io.github.seayar</groupId>
     <artifactId>modbus4j</artifactId>
     <version>1.0.0</version>
 </dependency>
@@ -81,10 +81,10 @@ mvn verify       # full build incl. the >=95% line-coverage gate
 ## Quick start
 
 ```java
-import com.seayar.modbus4j.*;
-import com.seayar.modbus4j.base.DataType;
-import com.seayar.modbus4j.ip.IpParameters;
-import com.seayar.modbus4j.locator.*;
+import io.github.seayar.modbus4j.*;
+import io.github.seayar.modbus4j.base.DataType;
+import io.github.seayar.modbus4j.ip.IpParameters;
+import io.github.seayar.modbus4j.locator.*;
 
 IpParameters params = new IpParameters();
 params.setHost("192.168.1.10");
@@ -173,7 +173,7 @@ When `setAutoReconnect(true)` is set, an idle connection (no traffic for `readTi
 
 ### Locator factories
 
-`BaseLocator` (package `com.seayar.modbus4j.locator`) builds typed points:
+`BaseLocator` (package `io.github.seayar.modbus4j.locator`) builds typed points:
 
 ```java
 BaseLocator<Boolean>  coil = BaseLocator.coilStatus(slaveId, offset);                 // FC 1
@@ -467,7 +467,7 @@ master.destroy();
 ## Project layout
 
 ```
-com.seayar.modbus4j
+io.github.seayar.modbus4j
 ├── base/       DataType, FunctionCode, RegisterRange, ReadFunctionGroup, SlaveAndRange, KeyedModbusLocator
 ├── locator/    BaseLocator, NumericLocator, BinaryLocator, StringLocator, BatchRead, BatchResults
 ├── msg/        requests/responses + MessageUtil registry

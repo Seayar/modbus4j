@@ -2,9 +2,9 @@
 
 ## Project status
 
-- This is a **from-scratch** Maven/Netty Java Modbus client library (`com.seayar:modbus4j:1.0.0`, Java 8). Build it with `mvn package`.
+- This is a **from-scratch** Maven/Netty Java Modbus client library (`io.github.seayar:modbus4j:1.0.0`, Java 8). Build it with `mvn package`.
 - Scope: TCP + RTU-over-TCP + ASCII master modes, async pipelined reads, adaptive concurrency, rich data types, extension SPIs. Slave mode is a future release.
-- Reference-only design source: `/mnt/d/Workspace/Java/modbus4j` (older Netty client). Public API mirrors **MangoAutomation/modbus4j** (ModbusFactory/ModbusMaster/IpParameters/BaseLocator/BatchRead) under package `com.seayar.modbus4j`.
+- Reference-only design source: `/mnt/d/Workspace/Java/modbus4j` (older Netty client). Public API mirrors **MangoAutomation/modbus4j** (ModbusFactory/ModbusMaster/IpParameters/BaseLocator/BatchRead) under package `io.github.seayar.modbus4j`.
 
 ## Build & verification
 
@@ -14,7 +14,7 @@
 
 ## Conventions
 
-- Root package `com.seayar.modbus4j`; layout: `base/` (DataType, FunctionCode, RegisterRange), `locator/`, `msg/` (requests/responses + `MessageUtil` registry), `codec/`, `transport/`, `ip/`, `serial/`, `concurrent/`, `poll/`, `net/`, `exception/`, `util/`.
+- Root package `io.github.seayar.modbus4j`; layout: `base/` (DataType, FunctionCode, RegisterRange), `locator/`, `msg/` (requests/responses + `MessageUtil` registry), `codec/`, `transport/`, `ip/`, `serial/`, `concurrent/`, `poll/`, `net/`, `exception/`, `util/`.
 - Minimal deps: Netty (transport/codec/handler), slf4j-api. logback-classic and junit are test-only.
 - Java 8 syntax only. No comments unless they add meaning.
 - Commit with conventional messages; the repo-local git identity is `Seayar <seayar@seayar.com>`.
