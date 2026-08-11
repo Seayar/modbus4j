@@ -373,6 +373,54 @@ public class NettyTransportTest {
         rtuGroup.shutdownGracefully().syncUninterruptibly();
     }
 
+    @Test(timeout = 15000)
+    public void testRtuRecoversAfterBadFrame() throws Exception {
+        EventLoopGroup rtuGroup = new NioEventLoopGroup(1);
+        ServerBootstrap rtuServer = new ServerBootstrap();
+        rtuServer.group(rtuGroup)
+                .channel(NioServerSocketChannel.class)
+                .childHandler(new ChannelInitializer<Channel>() {
+                    @Override
+                    protected void initChannel(Channel ch) {
+                        ch.pipeline().addLast(new SimpleChannelInboundHandler<ByteBuf>() {
+                            private boolean first = true;
+
+                            @Override
+                            protected void channelRead0(ChannelHandlerContext ctx, ByteBuf msg) {
+                                byte[] response = new byte[]{0x01, 0x03, 0x02, 0x00, 0x05};
+                                int crc = com.seayar.modbus4j.util.RtuCrcUtil.calculateCRC(response);
+                                ByteBuf out = io.netty.buffer.Unpooled.buffer();
+                                out.writeBytes(response);
+                                out.writeByte(crc & 0xff);
+                                out.writeByte((crc >> 8) & 0xff);
+                                if (first) {
+                                    first = false;
+                                    ByteBuf bad = out.copy();
+                                    bad.setByte(bad.writerIndex() - 1, bad.getByte(bad.writerIndex() - 1) ^ 0xff);
+                                    ctx.writeAndFlush(bad);
+                                }
+                                ctx.writeAndFlush(out);
+                            }
+                        });
+                    }
+                });
+        Channel rtuChannel = rtuServer.bind(0).sync().channel();
+        int rtuPort = ((java.net.InetSocketAddress) rtuChannel.localAddress()).getPort();
+        IpParameters params = new IpParameters();
+        params.setHost("127.0.0.1");
+        params.setPort(rtuPort);
+        params.setReadTimeoutMillis(5000);
+        NettyTransport transport = new NettyTransport(params, ModbusCodecType.RTU, true, null);
+        transport.init();
+        for (int i = 0; i < 5; i++) {
+            AbstractModbusResponse resp = transport.send(new ReadHoldingRegistersRequest(1, 0, 2));
+            assertTrue("iteration " + i, resp instanceof ReadHoldingRegistersResponse);
+        }
+        transport.destroy();
+        rtuChannel.close().syncUninterruptibly();
+        rtuGroup.shutdownGracefully().syncUninterruptibly();
+    }
+
     private int startSilentServer() throws Exception {
         EventLoopGroup silentGroup = new NioEventLoopGroup(1);
         silentServerGroup = silentGroup;

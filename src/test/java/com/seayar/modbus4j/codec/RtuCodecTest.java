@@ -23,8 +23,10 @@ import com.seayar.modbus4j.msg.ExceptionResponse;
 import com.seayar.modbus4j.msg.ReadHoldingRegistersRequest;
 import com.seayar.modbus4j.msg.ReadHoldingRegistersResponse;
 import com.seayar.modbus4j.msg.WriteRegisterRequest;
+import com.seayar.modbus4j.net.ModbusFrameDecoder;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.embedded.EmbeddedChannel;
 import org.junit.Test;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -226,6 +228,55 @@ public class RtuCodecTest {
         RtuCodec codec = new RtuCodec();
         ByteBuf in = Unpooled.wrappedBuffer(new byte[]{0x01, 0x2b, 0x00});
         assertNull(codec.decode(in));
+    }
+
+    @Test
+    public void testDecoderRecoversAfterBadCrc() {
+        ModbusFrameDecoder decoder = new ModbusFrameDecoder(new RtuCodec());
+        EmbeddedChannel channel = new EmbeddedChannel(decoder);
+        byte[] good = buildFrame(new byte[]{0x01, 0x03, 0x02, 0x00, 0x05});
+        byte[] bad = good.clone();
+        bad[bad.length - 1] ^= 0xff;
+        channel.writeInbound(Unpooled.wrappedBuffer(bad));
+        channel.writeInbound(Unpooled.wrappedBuffer(good));
+        Object frame = channel.readInbound();
+        assertNotNull(frame);
+        assertTrue(((ModbusFrame) frame).getMessage() instanceof ReadHoldingRegistersResponse);
+        assertNull(channel.readInbound());
+        channel.finishAndReleaseAll();
+    }
+
+    @Test
+    public void testDecoderRecoversAfterGarbage() {
+        ModbusFrameDecoder decoder = new ModbusFrameDecoder(new RtuCodec());
+        EmbeddedChannel channel = new EmbeddedChannel(decoder);
+        byte[] good = buildFrame(new byte[]{0x01, 0x03, 0x02, 0x00, 0x05});
+        byte[] garbage = new byte[]{(byte) 0xff, 0x00, 0x7f, 0x02};
+        channel.writeInbound(Unpooled.wrappedBuffer(garbage));
+        channel.writeInbound(Unpooled.wrappedBuffer(good));
+        Object frame = channel.readInbound();
+        assertNotNull(frame);
+        assertTrue(((ModbusFrame) frame).getMessage() instanceof ReadHoldingRegistersResponse);
+        channel.finishAndReleaseAll();
+    }
+
+    @Test
+    public void testDecodeBadCrcConsumesInput() {
+        RtuCodec codec = new RtuCodec();
+        byte[] bad = buildFrame(new byte[]{0x01, 0x03, 0x02, 0x00, 0x05});
+        bad[bad.length - 1] ^= 0xff;
+        ByteBuf in = Unpooled.wrappedBuffer(bad);
+        assertNull(codec.decode(in));
+        assertTrue(in.readerIndex() > 0);
+    }
+
+    private byte[] buildFrame(byte[] payload) {
+        int crc = RtuCrcUtil.computeRtuCrc(payload);
+        byte[] frame = new byte[payload.length + 2];
+        System.arraycopy(payload, 0, frame, 0, payload.length);
+        frame[payload.length] = (byte) (crc & 0xff);
+        frame[payload.length + 1] = (byte) ((crc >> 8) & 0xff);
+        return frame;
     }
 
     static final class RtuCrcUtil {

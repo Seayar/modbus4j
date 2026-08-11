@@ -26,8 +26,11 @@ import com.seayar.modbus4j.util.AsciiLrcUtil;
 import com.seayar.modbus4j.util.HexUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AsciiCodec implements ModbusCodec {
+    private static final Logger LOG = LoggerFactory.getLogger(AsciiCodec.class);
     private static final byte START = ':';
     private static final byte CR = '\r';
     private static final byte LF = '\n';
@@ -63,7 +66,7 @@ public class AsciiCodec implements ModbusCodec {
             return null;
         in.markReaderIndex();
         if (in.readByte() != START) {
-            in.resetReaderIndex();
+            resync(in);
             return null;
         }
         int hexStart = in.readerIndex();
@@ -74,12 +77,12 @@ public class AsciiCodec implements ModbusCodec {
         }
         int hexLength = crIndex - hexStart;
         if (hexLength % 2 != 0) {
-            in.resetReaderIndex();
+            resync(in);
             return null;
         }
         in.readerIndex(crIndex);
         if (in.readByte() != CR || in.readByte() != LF) {
-            in.resetReaderIndex();
+            resync(in);
             return null;
         }
         byte[] hexChars = new byte[hexLength];
@@ -87,12 +90,18 @@ public class AsciiCodec implements ModbusCodec {
         byte[] payload = HexUtil.hexStringToByte(new String(hexChars, java.nio.charset.StandardCharsets.US_ASCII));
         byte expected = AsciiLrcUtil.calculateLRC(payload, 0, payload.length - 1);
         if (payload[payload.length - 1] != expected) {
-            in.resetReaderIndex();
+            LOG.warn("Dropping ASCII frame with bad LRC: slaveId={}", payload[0] & 0xff);
+            resync(in);
             return null;
         }
         int slaveId = payload[0] & 0xff;
         ByteBuf data = Unpooled.wrappedBuffer(payload, 1, payload.length - 2);
         AbstractModbusMessage message = MessageUtil.createResponse(slaveId, data.readByte(), data);
         return new ModbusFrame(-1, message);
+    }
+
+    private void resync(ByteBuf in) {
+        in.resetReaderIndex();
+        in.skipBytes(1);
     }
 }

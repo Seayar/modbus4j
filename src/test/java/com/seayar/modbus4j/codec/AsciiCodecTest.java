@@ -22,8 +22,10 @@ package com.seayar.modbus4j.codec;
 import com.seayar.modbus4j.msg.ExceptionResponse;
 import com.seayar.modbus4j.msg.ReadHoldingRegistersRequest;
 import com.seayar.modbus4j.msg.ReadHoldingRegistersResponse;
+import com.seayar.modbus4j.net.ModbusFrameDecoder;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.embedded.EmbeddedChannel;
 import org.junit.Test;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -129,5 +131,32 @@ public class AsciiCodecTest {
         ModbusFrame decoded = codec.decode(in);
         assertNotNull(decoded);
         assertTrue(decoded.getMessage() instanceof com.seayar.modbus4j.msg.WriteRegistersResponse);
+    }
+
+    @Test
+    public void testDecoderRecoversAfterBadLrc() {
+        ModbusFrameDecoder decoder = new ModbusFrameDecoder(new AsciiCodec());
+        EmbeddedChannel channel = new EmbeddedChannel(decoder);
+        String badFrame = ":" + "0103020005" + "00" + "\r\n";
+        String goodFrame = ":" + "0103020005" + "F5" + "\r\n";
+        channel.writeInbound(Unpooled.wrappedBuffer(badFrame.getBytes()));
+        channel.writeInbound(Unpooled.wrappedBuffer(goodFrame.getBytes()));
+        Object frame = channel.readInbound();
+        assertNotNull(frame);
+        assertTrue(((ModbusFrame) frame).getMessage() instanceof ReadHoldingRegistersResponse);
+        channel.finishAndReleaseAll();
+    }
+
+    @Test
+    public void testDecoderRecoversAfterStrayByte() {
+        ModbusFrameDecoder decoder = new ModbusFrameDecoder(new AsciiCodec());
+        EmbeddedChannel channel = new EmbeddedChannel(decoder);
+        String goodFrame = ":" + "0103020005" + "F5" + "\r\n";
+        channel.writeInbound(Unpooled.wrappedBuffer("x".getBytes()));
+        channel.writeInbound(Unpooled.wrappedBuffer(goodFrame.getBytes()));
+        Object frame = channel.readInbound();
+        assertNotNull(frame);
+        assertTrue(((ModbusFrame) frame).getMessage() instanceof ReadHoldingRegistersResponse);
+        channel.finishAndReleaseAll();
     }
 }

@@ -139,7 +139,7 @@ ModbusMaster master = factory.createRtuMaster(params, true);   // serial-to-TCP 
 master.init();
 ```
 
-For devices behind a **serial-to-TCP gateway**: the payload is serial RTU (CRC-16), delivered over TCP. The engine enforces strictly synchronous sequencing — it never sends the next request until the previous response has arrived — which is the safe, reliable behaviour for slow serial lines. Responses are matched FIFO.
+For devices behind a **serial-to-TCP gateway**: the payload is serial RTU (CRC-16), delivered over TCP. The engine enforces strictly synchronous sequencing — it never sends the next request until the previous response has arrived — which is the safe, reliable behaviour for slow serial lines. Responses are matched FIFO. Frames with a bad CRC (or otherwise corrupt) are dropped automatically and the decoder resynchronizes on the next valid frame, so a single corrupted response never wedges the connection; dropped frames are logged at `warn`.
 
 ### ASCII over TCP — synchronous
 

@@ -139,7 +139,7 @@ ModbusMaster master = factory.createRtuMaster(params, true);   // 串口转 TCP 
 master.init();
 ```
 
-面向串口转 TCP 网关下的串口从站：载荷为串口 RTU（CRC-16），经 TCP 传输。引擎强制严格同步时序——上一条响应未到达前绝不发送下一条，保证慢速串口链路的采集可靠性。响应按 FIFO 匹配。
+面向串口转 TCP 网关下的串口从站：载荷为串口 RTU（CRC-16），经 TCP 传输。引擎强制严格同步时序——上一条响应未到达前绝不发送下一条，保证慢速串口链路的采集可靠性。响应按 FIFO 匹配。CRC 错误或其它损坏的帧会被自动丢弃，解码器自动在下一个有效帧处重新同步，因此单个坏帧不会卡死连接；丢弃的帧会以 `warn` 级别记录日志。
 
 ### ASCII over TCP —— 同步
 

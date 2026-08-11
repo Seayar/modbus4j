@@ -17,3 +17,7 @@ All notable changes to this project will be documented in this file.
 - `BatchRead.splitOnException` (default on): a group read that hits a slave exception (e.g. illegal data address in the middle of a range) is split in half and retried recursively, so readable points are returned and only the truly failing points become per-point errors in `BatchResults` instead of failing the whole batch. Disable with `batch.setSplitOnException(false)` for fail-fast behaviour.
 - `samples/` module with runnable examples (embedded slave + TCP/RTU/ASCII/batch/polling/data-types/extended-FC/custom-codec/custom-pipeline/custom-transport).
 - Detailed bilingual usage + extension guide in README.
+
+### Fixed
+
+- RTU / ASCII decoders now resynchronize instead of blocking forever when a corrupt frame arrives (bad CRC/LRC, stray bytes, malformed function code). Previously such a frame was kept in the decoder buffer indefinitely, so every later — valid — response was mis-parsed and the connection appeared permanently stuck with `ModbusTransportException: Response timeout` even though the slave was replying normally. Corrupt frames are now dropped (with a `warn` log) and the decoder picks up the next valid frame.

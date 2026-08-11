@@ -26,8 +26,11 @@ import com.seayar.modbus4j.msg.MessageUtil;
 import com.seayar.modbus4j.util.RtuCrcUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RtuCodec implements ModbusCodec {
+    private static final Logger LOG = LoggerFactory.getLogger(RtuCodec.class);
 
     @Override
     public ByteBuf encode(AbstractModbusRequest request, int transactionId) {
@@ -50,7 +53,7 @@ public class RtuCodec implements ModbusCodec {
         int functionCode = in.readUnsignedByte();
         int dataLength = getResponseDataLength(functionCode, in);
         if (dataLength < 0) {
-            in.resetReaderIndex();
+            resync(in);
             return null;
         }
         if (in.readableBytes() < dataLength + 2) {
@@ -66,12 +69,18 @@ public class RtuCodec implements ModbusCodec {
         int crcHigh = in.readUnsignedByte();
         int actual = (crcHigh << 8) | crcLow;
         if (expected != actual) {
-            in.resetReaderIndex();
+            LOG.warn("Dropping RTU frame with bad CRC: slaveId={}, functionCode={}", slaveId, functionCode);
+            resync(in);
             return null;
         }
         ByteBuf data = Unpooled.wrappedBuffer(crcData, 2, dataLength);
         AbstractModbusMessage message = MessageUtil.createResponse(slaveId, (byte) functionCode, data);
         return new ModbusFrame(-1, message);
+    }
+
+    private void resync(ByteBuf in) {
+        in.resetReaderIndex();
+        in.skipBytes(1);
     }
 
     private int getResponseDataLength(int functionCode, ByteBuf in) {
