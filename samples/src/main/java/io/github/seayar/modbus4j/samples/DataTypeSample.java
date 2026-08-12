@@ -89,9 +89,30 @@ public final class DataTypeSample {
                     new BigInteger("1234567890123456"));
             System.out.println("written MOD10K read back = "
                     + master.getValue(BaseLocator.holdingRegister(1, 20, DataType.EIGHT_BYTE_MOD_10K)));
+
+            System.out.println();
+            System.out.println("32-bit byte orders for value 0x12345678:");
+            showByteOrder("FOUR_BYTE_INT_UNSIGNED_ABCD", DataType.FOUR_BYTE_INT_UNSIGNED_ABCD);
+            showByteOrder("FOUR_BYTE_INT_UNSIGNED_BADC", DataType.FOUR_BYTE_INT_UNSIGNED_BADC);
+            showByteOrder("FOUR_BYTE_INT_UNSIGNED_CDAB", DataType.FOUR_BYTE_INT_UNSIGNED_CDAB);
+            showByteOrder("FOUR_BYTE_INT_UNSIGNED_DCBA", DataType.FOUR_BYTE_INT_UNSIGNED_DCBA);
         } finally {
             master.destroy();
         }
+    }
+
+    private static void showByteOrder(String label, int dataType) {
+        io.github.seayar.modbus4j.locator.NumericLocator locator =
+                new io.github.seayar.modbus4j.locator.NumericLocator(1,
+                        io.github.seayar.modbus4j.base.RegisterRange.HOLDING_REGISTER, 0, dataType);
+        short[] shorts = locator.valueToShorts(0x12345678L);
+        byte[] bytes = new byte[shorts.length * 2];
+        for (int i = 0; i < shorts.length; i++) {
+            bytes[i * 2] = (byte) (shorts[i] >> 8);
+            bytes[i * 2 + 1] = (byte) shorts[i];
+        }
+        System.out.println("  " + label + "  ->  wire bytes "
+                + io.github.seayar.modbus4j.util.HexUtil.bytesToHexString(bytes, " "));
     }
 
     private static String name(int type) {

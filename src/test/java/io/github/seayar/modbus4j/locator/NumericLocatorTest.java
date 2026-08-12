@@ -443,4 +443,151 @@ public class NumericLocatorTest {
         NumericLocator locator = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0, DataType.TWO_BYTE_BCD);
         locator.valueToShorts((short) -1);
     }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testNegativeFourByteBcdWrite() {
+        NumericLocator locator = new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0, DataType.FOUR_BYTE_BCD);
+        locator.valueToShorts(-1);
+    }
+
+    private static NumericLocator loc(int type) {
+        return new NumericLocator(1, RegisterRange.HOLDING_REGISTER, 0, type);
+    }
+
+    @Test
+    public void testTwoByteOrders() {
+        assertEquals(0x1234, loc(DataType.TWO_BYTE_INT_UNSIGNED_AB).valueToShorts(0x1234)[0] & 0xffff);
+        assertEquals(0x3412, loc(DataType.TWO_BYTE_INT_UNSIGNED_BA).valueToShorts(0x1234)[0] & 0xffff);
+        assertEquals((short) 0x1234, loc(DataType.TWO_BYTE_INT_SIGNED_AB).bytesToValue(shorts((short) 0x1234), 0));
+        assertEquals((short) 0x1234, loc(DataType.TWO_BYTE_INT_SIGNED_BA).bytesToValue(shorts((short) 0x3412), 0));
+    }
+
+    @Test
+    public void testFourByteUnsignedOrders() {
+        long v = 0x12345678L;
+        assertShorts(loc(DataType.FOUR_BYTE_INT_UNSIGNED_ABCD).valueToShorts(v), 0x1234, 0x5678);
+        assertShorts(loc(DataType.FOUR_BYTE_INT_UNSIGNED_BADC).valueToShorts(v), 0x3412, 0x7856);
+        assertShorts(loc(DataType.FOUR_BYTE_INT_UNSIGNED_CDAB).valueToShorts(v), 0x5678, 0x1234);
+        assertShorts(loc(DataType.FOUR_BYTE_INT_UNSIGNED_DCBA).valueToShorts(v), 0x7856, 0x3412);
+        assertEquals(v, loc(DataType.FOUR_BYTE_INT_UNSIGNED_ABCD).bytesToValue(shorts((short) 0x1234,
+                (short) 0x5678), 0));
+        assertEquals(v, loc(DataType.FOUR_BYTE_INT_UNSIGNED_BADC).bytesToValue(shorts((short) 0x3412,
+                (short) 0x7856), 0));
+        assertEquals(v, loc(DataType.FOUR_BYTE_INT_UNSIGNED_CDAB).bytesToValue(shorts((short) 0x5678,
+                (short) 0x1234), 0));
+        assertEquals(v, loc(DataType.FOUR_BYTE_INT_UNSIGNED_DCBA).bytesToValue(shorts((short) 0x7856,
+                (short) 0x3412), 0));
+    }
+
+    @Test
+    public void testFourByteSignedOrders() {
+        int v = 0x12345678;
+        assertShorts(loc(DataType.FOUR_BYTE_INT_SIGNED_ABCD).valueToShorts(v), 0x1234, 0x5678);
+        assertShorts(loc(DataType.FOUR_BYTE_INT_SIGNED_BADC).valueToShorts(v), 0x3412, 0x7856);
+        assertShorts(loc(DataType.FOUR_BYTE_INT_SIGNED_CDAB).valueToShorts(v), 0x5678, 0x1234);
+        assertShorts(loc(DataType.FOUR_BYTE_INT_SIGNED_DCBA).valueToShorts(v), 0x7856, 0x3412);
+        assertEquals(v, loc(DataType.FOUR_BYTE_INT_SIGNED_BADC).bytesToValue(shorts((short) 0x3412,
+                (short) 0x7856), 0));
+        assertEquals(v, loc(DataType.FOUR_BYTE_INT_SIGNED_DCBA).bytesToValue(shorts((short) 0x7856,
+                (short) 0x3412), 0));
+    }
+
+    @Test
+    public void testFourByteFloatOrders() {
+        float value = Float.intBitsToFloat(0x12345678);
+        assertShorts(loc(DataType.FOUR_BYTE_FLOAT_ABCD).valueToShorts(value), 0x1234, 0x5678);
+        assertShorts(loc(DataType.FOUR_BYTE_FLOAT_BADC).valueToShorts(value), 0x3412, 0x7856);
+        assertShorts(loc(DataType.FOUR_BYTE_FLOAT_CDAB).valueToShorts(value), 0x5678, 0x1234);
+        assertShorts(loc(DataType.FOUR_BYTE_FLOAT_DCBA).valueToShorts(value), 0x7856, 0x3412);
+        assertEquals(value, loc(DataType.FOUR_BYTE_FLOAT_BADC).bytesToValue(shorts((short) 0x3412,
+                (short) 0x7856), 0));
+        assertEquals(value, loc(DataType.FOUR_BYTE_FLOAT_DCBA).bytesToValue(shorts((short) 0x7856,
+                (short) 0x3412), 0));
+    }
+
+    @Test
+    public void testEightByteUnsignedOrders() {
+        BigInteger value = new BigInteger("0102030405060708", 16);
+        assertShorts(loc(DataType.EIGHT_BYTE_INT_UNSIGNED_ABCD).valueToShorts(value), 0x0102, 0x0304, 0x0506,
+                0x0708);
+        assertShorts(loc(DataType.EIGHT_BYTE_INT_UNSIGNED_BADC).valueToShorts(value), 0x0201, 0x0403, 0x0605,
+                0x0807);
+        assertShorts(loc(DataType.EIGHT_BYTE_INT_UNSIGNED_CDAB).valueToShorts(value), 0x0708, 0x0506, 0x0304, 0x0102);
+        assertShorts(loc(DataType.EIGHT_BYTE_INT_UNSIGNED_DCBA).valueToShorts(value), 0x0807, 0x0605, 0x0403,
+                0x0201);
+        assertEquals(value, loc(DataType.EIGHT_BYTE_INT_UNSIGNED_DCBA).bytesToValue(shorts((short) 0x0807,
+                (short) 0x0605, (short) 0x0403, (short) 0x0201), 0));
+    }
+
+    @Test
+    public void testEightByteSignedOrders() {
+        long value = 0x0102030405060708L;
+        assertShorts(loc(DataType.EIGHT_BYTE_INT_SIGNED_ABCD).valueToShorts(value), 0x0102, 0x0304, 0x0506,
+                0x0708);
+        assertShorts(loc(DataType.EIGHT_BYTE_INT_SIGNED_BADC).valueToShorts(value), 0x0201, 0x0403, 0x0605,
+                0x0807);
+        assertShorts(loc(DataType.EIGHT_BYTE_INT_SIGNED_CDAB).valueToShorts(value), 0x0708, 0x0506, 0x0304, 0x0102);
+        assertShorts(loc(DataType.EIGHT_BYTE_INT_SIGNED_DCBA).valueToShorts(value), 0x0807, 0x0605, 0x0403,
+                0x0201);
+        assertEquals(value, loc(DataType.EIGHT_BYTE_INT_SIGNED_BADC).bytesToValue(shorts((short) 0x0201,
+                (short) 0x0403, (short) 0x0605, (short) 0x0807), 0));
+    }
+
+    @Test
+    public void testEightByteFloatOrders() {
+        double value = Double.longBitsToDouble(0x0102030405060708L);
+        assertShorts(loc(DataType.EIGHT_BYTE_FLOAT_ABCD).valueToShorts(value), 0x0102, 0x0304, 0x0506, 0x0708);
+        assertShorts(loc(DataType.EIGHT_BYTE_FLOAT_BADC).valueToShorts(value), 0x0201, 0x0403, 0x0605, 0x0807);
+        assertShorts(loc(DataType.EIGHT_BYTE_FLOAT_CDAB).valueToShorts(value), 0x0708, 0x0506, 0x0304, 0x0102);
+        assertShorts(loc(DataType.EIGHT_BYTE_FLOAT_DCBA).valueToShorts(value), 0x0807, 0x0605, 0x0403, 0x0201);
+        assertEquals(value, loc(DataType.EIGHT_BYTE_FLOAT_DCBA).bytesToValue(shorts((short) 0x0807,
+                (short) 0x0605, (short) 0x0403, (short) 0x0201), 0));
+    }
+
+    @Test
+    public void testOrderRoundTripMatrix() {
+        int[] unsignedTypes = {
+                DataType.TWO_BYTE_INT_UNSIGNED_AB, DataType.TWO_BYTE_INT_UNSIGNED_BA,
+                DataType.FOUR_BYTE_INT_UNSIGNED_ABCD, DataType.FOUR_BYTE_INT_UNSIGNED_BADC,
+                DataType.FOUR_BYTE_INT_UNSIGNED_CDAB, DataType.FOUR_BYTE_INT_UNSIGNED_DCBA,
+                DataType.EIGHT_BYTE_INT_UNSIGNED_ABCD, DataType.EIGHT_BYTE_INT_UNSIGNED_BADC,
+                DataType.EIGHT_BYTE_INT_UNSIGNED_CDAB, DataType.EIGHT_BYTE_INT_UNSIGNED_DCBA
+        };
+        for (int type : unsignedTypes) {
+            NumericLocator l = loc(type);
+            Object value;
+            if (l.getRegisterCount() == 1)
+                value = 0x1234;
+            else if (l.getRegisterCount() == 2)
+                value = 0x12345678L;
+            else
+                value = new BigInteger("0102030405060708", 16);
+            short[] s = l.valueToShorts((Number) value);
+            Object out = l.bytesToValue(shorts(s), 0);
+            assertEquals(type + " round trip", value, out);
+        }
+        int[] floatTypes = {
+                DataType.FOUR_BYTE_FLOAT_ABCD, DataType.FOUR_BYTE_FLOAT_BADC,
+                DataType.FOUR_BYTE_FLOAT_CDAB, DataType.FOUR_BYTE_FLOAT_DCBA,
+                DataType.EIGHT_BYTE_FLOAT_ABCD, DataType.EIGHT_BYTE_FLOAT_BADC,
+                DataType.EIGHT_BYTE_FLOAT_CDAB, DataType.EIGHT_BYTE_FLOAT_DCBA
+        };
+        for (int type : floatTypes) {
+            NumericLocator l = loc(type);
+            Number value;
+            if (l.getRegisterCount() == 2)
+                value = Float.valueOf(Float.intBitsToFloat(0x40200000));
+            else
+                value = Double.valueOf(Double.longBitsToDouble(0x4020000000000000L));
+            short[] s = l.valueToShorts(value);
+            Object out = l.bytesToValue(shorts(s), 0);
+            assertEquals(type + " round trip", value, out);
+        }
+    }
+
+    private static void assertShorts(short[] actual, int... expected) {
+        assertEquals(expected.length, actual.length);
+        for (int i = 0; i < expected.length; i++)
+            assertEquals(expected[i], actual[i] & 0xffff);
+    }
 }

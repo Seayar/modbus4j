@@ -47,6 +47,12 @@ public class NumericLocator extends BaseLocator<Number> {
     @Override
     public Number bytesToValueRealOffset(byte[] data, int offset) {
         offset *= 2;
+        int order = orderOf(dataType);
+        if (order != -1) {
+            int base = baseOf(dataType);
+            byte[] abcd = reorderToAbcd(data, offset, baseByteCount(base), order);
+            return decodeBase(base, abcd, 0);
+        }
         if (dataType == DataType.TWO_BYTE_INT_UNSIGNED)
             return ((data[offset] & 0xff) << 8) | (data[offset + 1] & 0xff);
         if (dataType == DataType.TWO_BYTE_INT_SIGNED)
@@ -159,6 +165,12 @@ public class NumericLocator extends BaseLocator<Number> {
 
     @Override
     public short[] valueToShorts(Number value) {
+        int order = orderOf(dataType);
+        if (order != -1) {
+            int base = baseOf(dataType);
+            byte[] wire = reorderToWire(encodeBase(base, value), baseByteCount(base), order);
+            return bytesToShorts(wire, false);
+        }
         if (dataType == DataType.TWO_BYTE_INT_UNSIGNED || dataType == DataType.TWO_BYTE_INT_SIGNED)
             return new short[]{toShort(value)};
         if (dataType == DataType.TWO_BYTE_INT_SIGNED_SWAPPED || dataType == DataType.TWO_BYTE_INT_UNSIGNED_SWAPPED) {
@@ -287,6 +299,201 @@ public class NumericLocator extends BaseLocator<Number> {
 
     private short toShort(Number value) {
         return (short) value.intValue();
+    }
+
+    private static final int ORDER_ABCD = 0;
+    private static final int ORDER_BADC = 1;
+    private static final int ORDER_CDAB = 2;
+    private static final int ORDER_DCBA = 3;
+
+    private static final int BASE_UINT16 = 0;
+    private static final int BASE_INT16 = 1;
+    private static final int BASE_UINT32 = 2;
+    private static final int BASE_INT32 = 3;
+    private static final int BASE_FLOAT32 = 4;
+    private static final int BASE_UINT64 = 5;
+    private static final int BASE_INT64 = 6;
+    private static final int BASE_FLOAT64 = 7;
+
+    private static int orderOf(int dataType) {
+        switch (dataType) {
+            case DataType.TWO_BYTE_INT_UNSIGNED_AB:
+            case DataType.TWO_BYTE_INT_SIGNED_AB:
+            case DataType.FOUR_BYTE_INT_UNSIGNED_ABCD:
+            case DataType.FOUR_BYTE_INT_SIGNED_ABCD:
+            case DataType.FOUR_BYTE_FLOAT_ABCD:
+            case DataType.EIGHT_BYTE_INT_UNSIGNED_ABCD:
+            case DataType.EIGHT_BYTE_INT_SIGNED_ABCD:
+            case DataType.EIGHT_BYTE_FLOAT_ABCD:
+                return ORDER_ABCD;
+            case DataType.TWO_BYTE_INT_UNSIGNED_BA:
+            case DataType.TWO_BYTE_INT_SIGNED_BA:
+            case DataType.FOUR_BYTE_INT_UNSIGNED_BADC:
+            case DataType.FOUR_BYTE_INT_SIGNED_BADC:
+            case DataType.FOUR_BYTE_FLOAT_BADC:
+            case DataType.EIGHT_BYTE_INT_UNSIGNED_BADC:
+            case DataType.EIGHT_BYTE_INT_SIGNED_BADC:
+            case DataType.EIGHT_BYTE_FLOAT_BADC:
+                return ORDER_BADC;
+            case DataType.FOUR_BYTE_INT_UNSIGNED_CDAB:
+            case DataType.FOUR_BYTE_INT_SIGNED_CDAB:
+            case DataType.FOUR_BYTE_FLOAT_CDAB:
+            case DataType.EIGHT_BYTE_INT_UNSIGNED_CDAB:
+            case DataType.EIGHT_BYTE_INT_SIGNED_CDAB:
+            case DataType.EIGHT_BYTE_FLOAT_CDAB:
+                return ORDER_CDAB;
+            case DataType.FOUR_BYTE_INT_UNSIGNED_DCBA:
+            case DataType.FOUR_BYTE_INT_SIGNED_DCBA:
+            case DataType.FOUR_BYTE_FLOAT_DCBA:
+            case DataType.EIGHT_BYTE_INT_UNSIGNED_DCBA:
+            case DataType.EIGHT_BYTE_INT_SIGNED_DCBA:
+            case DataType.EIGHT_BYTE_FLOAT_DCBA:
+                return ORDER_DCBA;
+            default:
+                return -1;
+        }
+    }
+
+    private static int baseOf(int dataType) {
+        switch (dataType) {
+            case DataType.TWO_BYTE_INT_UNSIGNED_AB:
+            case DataType.TWO_BYTE_INT_UNSIGNED_BA:
+                return BASE_UINT16;
+            case DataType.TWO_BYTE_INT_SIGNED_AB:
+            case DataType.TWO_BYTE_INT_SIGNED_BA:
+                return BASE_INT16;
+            case DataType.FOUR_BYTE_INT_UNSIGNED_ABCD:
+            case DataType.FOUR_BYTE_INT_UNSIGNED_BADC:
+            case DataType.FOUR_BYTE_INT_UNSIGNED_CDAB:
+            case DataType.FOUR_BYTE_INT_UNSIGNED_DCBA:
+                return BASE_UINT32;
+            case DataType.FOUR_BYTE_INT_SIGNED_ABCD:
+            case DataType.FOUR_BYTE_INT_SIGNED_BADC:
+            case DataType.FOUR_BYTE_INT_SIGNED_CDAB:
+            case DataType.FOUR_BYTE_INT_SIGNED_DCBA:
+                return BASE_INT32;
+            case DataType.FOUR_BYTE_FLOAT_ABCD:
+            case DataType.FOUR_BYTE_FLOAT_BADC:
+            case DataType.FOUR_BYTE_FLOAT_CDAB:
+            case DataType.FOUR_BYTE_FLOAT_DCBA:
+                return BASE_FLOAT32;
+            case DataType.EIGHT_BYTE_INT_UNSIGNED_ABCD:
+            case DataType.EIGHT_BYTE_INT_UNSIGNED_BADC:
+            case DataType.EIGHT_BYTE_INT_UNSIGNED_CDAB:
+            case DataType.EIGHT_BYTE_INT_UNSIGNED_DCBA:
+                return BASE_UINT64;
+            case DataType.EIGHT_BYTE_INT_SIGNED_ABCD:
+            case DataType.EIGHT_BYTE_INT_SIGNED_BADC:
+            case DataType.EIGHT_BYTE_INT_SIGNED_CDAB:
+            case DataType.EIGHT_BYTE_INT_SIGNED_DCBA:
+                return BASE_INT64;
+            default:
+                return BASE_FLOAT64;
+        }
+    }
+
+    private static int baseByteCount(int base) {
+        switch (base) {
+            case BASE_UINT16:
+            case BASE_INT16:
+                return 2;
+            case BASE_UINT32:
+            case BASE_INT32:
+            case BASE_FLOAT32:
+                return 4;
+            default:
+                return 8;
+        }
+    }
+
+    private static int wireIndex(int i, int byteCount, int order) {
+        int reg = i / 2;
+        int byteInReg = i % 2;
+        int regCount = byteCount / 2;
+        switch (order) {
+            case ORDER_BADC:
+                return reg * 2 + (1 - byteInReg);
+            case ORDER_CDAB:
+                return (regCount - 1 - reg) * 2 + byteInReg;
+            case ORDER_DCBA:
+                return (regCount - 1 - reg) * 2 + (1 - byteInReg);
+            default:
+                return reg * 2 + byteInReg;
+        }
+    }
+
+    private static byte[] reorderToAbcd(byte[] data, int offset, int byteCount, int order) {
+        byte[] out = new byte[byteCount];
+        for (int i = 0; i < byteCount; i++)
+            out[i] = data[offset + wireIndex(i, byteCount, order)];
+        return out;
+    }
+
+    private static byte[] reorderToWire(byte[] abcd, int byteCount, int order) {
+        byte[] out = new byte[byteCount];
+        for (int i = 0; i < byteCount; i++)
+            out[wireIndex(i, byteCount, order)] = abcd[i];
+        return out;
+    }
+
+    private static Number decodeBase(int base, byte[] b, int o) {
+        switch (base) {
+            case BASE_UINT16:
+                return ((b[o] & 0xff) << 8) | (b[o + 1] & 0xff);
+            case BASE_INT16:
+                return (short) (((b[o] & 0xff) << 8) | (b[o + 1] & 0xff));
+            case BASE_UINT32:
+                return ((long) (b[o] & 0xff) << 24) | ((long) (b[o + 1] & 0xff) << 16)
+                        | ((long) (b[o + 2] & 0xff) << 8) | (b[o + 3] & 0xff);
+            case BASE_INT32:
+                return ((b[o] & 0xff) << 24) | ((b[o + 1] & 0xff) << 16)
+                        | ((b[o + 2] & 0xff) << 8) | (b[o + 3] & 0xff);
+            case BASE_FLOAT32:
+                return Float.intBitsToFloat(((b[o] & 0xff) << 24) | ((b[o + 1] & 0xff) << 16)
+                        | ((b[o + 2] & 0xff) << 8) | (b[o + 3] & 0xff));
+            case BASE_UINT64:
+                return new BigInteger(1, java.util.Arrays.copyOfRange(b, o, o + 8));
+            case BASE_INT64:
+                return ((long) (b[o] & 0xff) << 56) | ((long) (b[o + 1] & 0xff) << 48)
+                        | ((long) (b[o + 2] & 0xff) << 40) | ((long) (b[o + 3] & 0xff) << 32)
+                        | ((long) (b[o + 4] & 0xff) << 24) | ((long) (b[o + 5] & 0xff) << 16)
+                        | ((long) (b[o + 6] & 0xff) << 8) | (b[o + 7] & 0xff);
+            default:
+                return Double.longBitsToDouble(((long) (b[o] & 0xff) << 56) | ((long) (b[o + 1] & 0xff) << 48)
+                        | ((long) (b[o + 2] & 0xff) << 40) | ((long) (b[o + 3] & 0xff) << 32)
+                        | ((long) (b[o + 4] & 0xff) << 24) | ((long) (b[o + 5] & 0xff) << 16)
+                        | ((long) (b[o + 6] & 0xff) << 8) | (b[o + 7] & 0xff));
+        }
+    }
+
+    private static byte[] encodeBase(int base, Number value) {
+        switch (base) {
+            case BASE_UINT16:
+            case BASE_INT16: {
+                int v = value.intValue();
+                return new byte[]{(byte) (v >> 8), (byte) v};
+            }
+            case BASE_UINT32:
+            case BASE_INT32: {
+                int v = value.intValue();
+                return new byte[]{(byte) (v >> 24), (byte) (v >> 16), (byte) (v >> 8), (byte) v};
+            }
+            case BASE_FLOAT32: {
+                int v = Float.floatToIntBits(value.floatValue());
+                return new byte[]{(byte) (v >> 24), (byte) (v >> 16), (byte) (v >> 8), (byte) v};
+            }
+            case BASE_UINT64:
+            case BASE_INT64: {
+                long v = value.longValue();
+                return new byte[]{(byte) (v >> 56), (byte) (v >> 48), (byte) (v >> 40), (byte) (v >> 32),
+                        (byte) (v >> 24), (byte) (v >> 16), (byte) (v >> 8), (byte) v};
+            }
+            default: {
+                long v = Double.doubleToLongBits(value.doubleValue());
+                return new byte[]{(byte) (v >> 56), (byte) (v >> 48), (byte) (v >> 40), (byte) (v >> 32),
+                        (byte) (v >> 24), (byte) (v >> 16), (byte) (v >> 8), (byte) v};
+            }
+        }
     }
 
     @Override
