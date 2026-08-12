@@ -23,10 +23,14 @@ import io.github.seayar.modbus4j.codec.ModbusCodecType;
 import io.github.seayar.modbus4j.concurrent.AdaptiveConcurrency;
 import io.github.seayar.modbus4j.ip.IpParameters;
 import io.github.seayar.modbus4j.ip.TcpMaster;
+import io.github.seayar.modbus4j.ip.UdpMaster;
 import io.github.seayar.modbus4j.serial.AsciiMaster;
+import io.github.seayar.modbus4j.serial.AsciiUdpMaster;
 import io.github.seayar.modbus4j.serial.RtuMaster;
+import io.github.seayar.modbus4j.serial.RtuUdpMaster;
 import io.github.seayar.modbus4j.transport.ModbusTransport;
 import io.github.seayar.modbus4j.transport.NettyTransport;
+import io.github.seayar.modbus4j.transport.UdpTransport;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -84,6 +88,41 @@ public class ModbusFactoryTest {
         assertNotNull(master);
         assertTrue(master instanceof AsciiMaster);
         assertNotNull(master.getTransport());
+    }
+
+    @Test
+    public void testCreateUdpMaster() {
+        ModbusFactory factory = new ModbusFactory();
+        ModbusMaster master = factory.createUdpMaster(new IpParameters(), true);
+        assertNotNull(master);
+        assertTrue(master instanceof UdpMaster);
+        assertNotNull(master.getTransport());
+    }
+
+    @Test
+    public void testCreateRtuUdpMaster() {
+        ModbusFactory factory = new ModbusFactory();
+        ModbusMaster master = factory.createRtuUdpMaster(new IpParameters(), true);
+        assertNotNull(master);
+        assertTrue(master instanceof RtuUdpMaster);
+        assertNotNull(master.getTransport());
+    }
+
+    @Test
+    public void testCreateAsciiUdpMaster() {
+        ModbusFactory factory = new ModbusFactory();
+        ModbusMaster master = factory.createAsciiUdpMaster(new IpParameters(), false);
+        assertNotNull(master);
+        assertTrue(master instanceof AsciiUdpMaster);
+        assertNotNull(master.getTransport());
+    }
+
+    @Test
+    public void testUdpMasterWithCustomTransport() {
+        ModbusTransport transport = new UdpTransport(new IpParameters(), ModbusCodecType.TCP, false,
+                new AdaptiveConcurrency(1, 4, 100_000_000L, 0.1));
+        UdpMaster master = new UdpMaster(transport, true);
+        assertSame(transport, master.getTransport());
     }
 
     @Test

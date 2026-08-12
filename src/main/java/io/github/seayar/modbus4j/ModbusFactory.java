@@ -21,8 +21,11 @@ package io.github.seayar.modbus4j;
 
 import io.github.seayar.modbus4j.ip.IpParameters;
 import io.github.seayar.modbus4j.ip.TcpMaster;
+import io.github.seayar.modbus4j.ip.UdpMaster;
 import io.github.seayar.modbus4j.serial.AsciiMaster;
+import io.github.seayar.modbus4j.serial.AsciiUdpMaster;
 import io.github.seayar.modbus4j.serial.RtuMaster;
+import io.github.seayar.modbus4j.serial.RtuUdpMaster;
 
 public class ModbusFactory {
 
@@ -36,5 +39,17 @@ public class ModbusFactory {
 
     public ModbusMaster createAsciiMaster(IpParameters parameters, boolean validateResponse) {
         return new AsciiMaster(parameters, validateResponse);
+    }
+
+    public ModbusMaster createUdpMaster(IpParameters parameters, boolean validateResponse) {
+        return new UdpMaster(parameters, validateResponse);
+    }
+
+    public ModbusMaster createRtuUdpMaster(IpParameters parameters, boolean validateResponse) {
+        return new RtuUdpMaster(parameters, validateResponse);
+    }
+
+    public ModbusMaster createAsciiUdpMaster(IpParameters parameters, boolean validateResponse) {
+        return new AsciiUdpMaster(parameters, validateResponse);
     }
 }
