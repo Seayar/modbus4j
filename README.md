@@ -27,12 +27,12 @@
 
 ## Highlights
 
-- **Three wire protocols** — Modbus TCP (async, pipelined), RTU and ASCII over TCP (strictly synchronous request/response), all framed/checked internally (MBAP, CRC-16, LRC).
+- **Six wire modes** — Modbus TCP and UDP (async, pipelined), RTU and ASCII over TCP and over UDP (strictly synchronous request/response), all framed/checked internally (MBAP, CRC-16, LRC). Matches the common Modbus slave simulator modes: TCP, UDP, RTU over TCP, RTU over UDP.
 - **Full read/write coverage** — coils, discrete inputs, holding registers and input registers, single and multiple writes, plus the extended function codes: exception status, report slave id, file records, mask-write and read/write multiple registers (FC 7, 17, 20–23).
-- **High throughput on one connection** — TCP mode pipelines many in-flight requests over a single long-lived channel; a logical `BatchRead` can span far more than the 65,535-byte/125-register wire limit because it is transparently split into multiple requests.
+- **High throughput on one connection** — TCP/UDP modes pipeline many in-flight requests over a single channel; a logical `BatchRead` can span far more than the 65,535-byte/125-register wire limit because it is transparently split into multiple requests.
 - **Adaptive concurrency** — the engine measures per-response round-trip time and error rate and automatically raises/lowers the in-flight limit, so fast slaves are pipelined hard while slow ones are never flooded.
 - **Auto-reconnect** — optional idle-timeout detection and automatic reconnection for environments with firewall TCP aging.
-- **Rich data types** — 2/4/8-byte integers, floats, byte/word-swap variants, signed/unsigned, BCD, MOD10K, upper/lower byte, CHAR/VARCHAR strings, and bit-level access to registers and coils.
+- **Rich data types** — 2/4/8-byte integers, floats, BCD, MOD10K, signed/unsigned, upper/lower byte, CHAR/VARCHAR strings, and bit-level access; every 16/32/64-bit value covers the four explicit wire byte orders (ABCD / BADC / CDAB / DCBA).
 - **Extensible** — plug in your own function codes, wire codec, Netty pipeline (SSL, pre-connection authentication, vendor framing) or a whole transport via documented SPIs. See [Extending modbus4j](#extending-modbus4j).
 - **Samples** — runnable examples for every usage live in the [`samples/`](./samples/README.md) module.
 - **Minimal dependencies** — only Netty (`transport`/`codec`/`handler`) and `slf4j-api`; no heavy third-party stack.
@@ -44,12 +44,13 @@ Implemented in this release:
 | Area | Status |
 | --- | --- |
 | Modbus TCP master | ✅ async, pipelined, MBAP framing |
-| RTU over TCP master | ✅ synchronous, CRC-16, FIFO response matching |
-| ASCII over TCP master | ✅ synchronous, LRC, `:`…`CR LF` framing |
+| Modbus UDP master | ✅ async, pipelined, MBAP in a datagram |
+| RTU over TCP / UDP master | ✅ synchronous, CRC-16, FIFO response matching |
+| ASCII over TCP / UDP master | ✅ synchronous, LRC, `:`…`CR LF` framing |
 | Function codes 1–7, 15–17, 20–23 | ✅ requests + responses |
 | Exception responses (0x80 + code) | ✅ decoded into `ExceptionResponse` |
 | Register bit read/write (holding/input) | ✅ |
-| 2/4/8-byte ints & floats + swap variants, BCD, MOD10K | ✅ (see [Data types](#data-types)) |
+| 2/4/8-byte ints & floats, all 4 byte orders, BCD, MOD10K | ✅ (see [Data types](#data-types)) |
 | CHAR / VARCHAR | ✅ |
 | Batch read grouping & polling | ✅ |
 | Adaptive in-flight throttling | ✅ automatic, based on measured latency/error rate |
@@ -150,6 +151,33 @@ master.init();
 
 Same synchronous semantics as RTU, but with ASCII framing (`:` … `CR LF`, LRC checksum). Useful for gateways/devices that only speak ASCII.
 
+### UDP master — asynchronous
+
+```java
+ModbusMaster master = factory.createUdpMaster(params, true);
+master.init();
+```
+
+Modbus UDP (MBAP header in a single datagram). Pipelined with transaction-id matching, same as TCP — each request and response is one UDP datagram. Pair it with a simulator running in **UDP** mode.
+
+### RTU over UDP — synchronous
+
+```java
+ModbusMaster master = factory.createRtuUdpMaster(params, true);
+master.init();
+```
+
+RTU framing (CRC-16) inside a single datagram, strictly synchronous (one request in flight). Use with a simulator in **RTU over UDP** mode.
+
+### ASCII over UDP — synchronous
+
+```java
+ModbusMaster master = factory.createAsciiUdpMaster(params, true);
+master.init();
+```
+
+ASCII framing over a single datagram, synchronous. Use with a simulator in **ASCII over UDP** mode.
+
 ## Configuration
 
 `IpParameters` configures host, port and socket behaviour:
@@ -209,6 +237,23 @@ The swap variants cover the two common big-endian conventions and their inversio
 // value is two registers [hi, lo]
 BaseLocator<Number> a = BaseLocator.holdingRegister(1, 0, DataType.FOUR_BYTE_FLOAT);          // ABCD
 BaseLocator<Number> b = BaseLocator.holdingRegister(1, 0, DataType.FOUR_BYTE_FLOAT_SWAPPED);  // CDAB
+```
+
+**32/64-bit byte orders.** Every 16/32/64-bit integer and float type also has an explicit, self-documenting constant naming the exact wire byte order. A value spans `N` registers; the two independent axes are *register order* and *byte order within each register*, giving exactly four layouts:
+
+| Suffix | 中文名 | Wire bytes (32-bit example, `0x12345678`) | Meaning |
+| --- | --- | --- | --- |
+| `_ABCD` | 大端 | `12 34 56 78` | registers in order, bytes not swapped |
+| `_BADC` | 先大端后小端 | `34 12 78 56` | registers in order, bytes swapped within each register |
+| `_CDAB` | 先小端后大端 | `56 78 12 34` | registers reversed, bytes not swapped |
+| `_DCBA` | 小端 | `78 56 34 12` | registers reversed, bytes swapped within each register |
+
+These constants exist for `TWO_BYTE_INT_UNSIGNED/SIGNED` (`_AB`/`_BA`), `FOUR_BYTE_INT_UNSIGNED/SIGNED` and `FOUR_BYTE_FLOAT` (`_ABCD`/`_BADC`/`_CDAB`/`_DCBA`), and `EIGHT_BYTE_INT_UNSIGNED/SIGNED` and `EIGHT_BYTE_FLOAT` (`_ABCD`/`_BADC`/`_CDAB`/`_DCBA`). The legacy Mango-compatible names remain as aliases: `FOUR_BYTE_FLOAT`=`_ABCD`, `FOUR_BYTE_FLOAT_SWAPPED`=`_CDAB`, `FOUR_BYTE_INT_*_SWAPPED`=`_CDAB`, `FOUR_BYTE_INT_*_SWAPPED_SWAPPED`=`_DCBA`, `EIGHT_BYTE_*_SWAPPED`=`_CDAB`. `FOUR_BYTE_FLOAT_SWAPPED_INVERTED` is deprecated (it duplicates `_SWAPPED`).
+
+```java
+BaseLocator<Number> big     = BaseLocator.holdingRegister(1, 0, DataType.FOUR_BYTE_FLOAT_ABCD);
+BaseLocator<Number> little  = BaseLocator.holdingRegister(1, 0, DataType.FOUR_BYTE_FLOAT_DCBA);
+BaseLocator<Number> byteSwap = BaseLocator.holdingRegister(1, 0, DataType.FOUR_BYTE_FLOAT_BADC);
 ```
 
 BCD types pack two decimal digits per byte (`0x1234` ↔ `1234`); MOD10K types pack up to four decimal digits per register (`1234, 5678` ↔ `12345678`) and map to `BigInteger`. Writes validate the range and throw `IllegalArgumentException` for out-of-range values.
@@ -501,7 +546,7 @@ GNU General Public License v3.0 **or later** (see [LICENSE](./LICENSE)). Commerc
 
 ## Roadmap
 
-- v1.0: TCP / RTU / ASCII master modes, full function-code & data-type coverage, batch & polling, adaptive concurrency, auto-reconnect, extension SPIs, samples *(this release)*
+- v1.0: TCP / UDP / RTU-over-TCP+UDP / ASCII-over-TCP+UDP master modes, full function-code & data-type coverage (all four byte orders), batch & polling, adaptive concurrency, auto-reconnect, extension SPIs, samples *(this release)*
 - v1.1: `SIX_BYTE_INT` variants, richer reconnect backoff policies
 - v2.0: Slave (server) mode
 

@@ -27,12 +27,12 @@
 
 ## 特性
 
-- **三种线协议** —— Modbus TCP（异步、流水线）、RTU over TCP、ASCII over TCP（严格同步请求/响应），内部自动完成 MBAP 帧、CRC-16、LRC 校验。
+- **六种线模式** —— Modbus TCP 与 UDP（异步、流水线）、RTU/ASCII over TCP 与 over UDP（严格同步请求/响应），内部自动完成 MBAP 帧、CRC-16、LRC 校验。与常见 Modbus 从站模拟器的 TCP、UDP、RTU over TCP、RTU over UDP 模式对齐。
 - **读写全覆盖** —— 线圈、离散输入、保持寄存器、输入寄存器的单点与批量读写，并包含扩展功能码：读异常状态、报告从站 ID、文件记录、掩码写、读/写多寄存器（FC 7、17、20–23）。
-- **单连接高吞吐** —— TCP 模式在单条长连接上流水线式并发多个在途请求；`BatchRead` 逻辑批量可远超 65,535 字节 / 125 寄存器的单报文上限，内部自动拆分多个请求。
+- **单连接高吞吐** —— TCP/UDP 模式在单条通道上流水线式并发多个在途请求；`BatchRead` 逻辑批量可远超 65,535 字节 / 125 寄存器的单报文上限，内部自动拆分多个请求。
 - **自适应并发** —— 引擎测量每个请求的往返时间与错误率，自动提升/降低在途请求上限：从站快则深度流水线，从站慢则绝不压垮。
 - **自动重连** —— 可选空闲超时检测与自动重建连接，适配防火墙 TCP 老化场景。
-- **丰富数据类型** —— 2/4/8 字节整型与浮点、字节/字交换、有符号/无符号、BCD、MOD10K、高低字节、CHAR/VARCHAR 字符串，以及寄存器按位读写。
+- **丰富数据类型** —— 2/4/8 字节整型与浮点、BCD、MOD10K、有符号/无符号、高低字节、CHAR/VARCHAR 字符串，以及寄存器按位读写；每种 16/32/64 位数值均覆盖四种显式线序（ABCD / BADC / CDAB / DCBA）。
 - **可扩展** —— 通过公开 SPI 可接入自定义功能码、线编解码器、Netty 管道（SSL、通信前身份认证、厂商私有帧）乃至完整自定义传输层。详见[扩展 modbus4j](#扩展-modbus4j预留扩展能力)。
 - **样例代码** —— 每种用法的可运行示例位于 [`samples/`](./samples/README.md) 模块。
 - **极简依赖** —— 仅 Netty（`transport`/`codec`/`handler`）与 `slf4j-api`，不引入重型三方依赖。
@@ -44,12 +44,13 @@
 | 项目 | 状态 |
 | --- | --- |
 | Modbus TCP 主站 | ✅ 异步、流水线、MBAP 帧 |
-| RTU over TCP 主站 | ✅ 同步、CRC-16、FIFO 响应匹配 |
-| ASCII over TCP 主站 | ✅ 同步、LRC、`:`…`CR LF` 帧 |
+| Modbus UDP 主站 | ✅ 异步、流水线、单数据报 MBAP |
+| RTU over TCP / UDP 主站 | ✅ 同步、CRC-16、FIFO 响应匹配 |
+| ASCII over TCP / UDP 主站 | ✅ 同步、LRC、`:`…`CR LF` 帧 |
 | 功能码 1–7、15–17、20–23 | ✅ 请求 + 响应 |
 | 异常响应（0x80 + 异常码） | ✅ 解码为 `ExceptionResponse` |
 | 寄存器按位读写（保持/输入） | ✅ |
-| 2/4/8 字节整型与浮点、交换变体、BCD、MOD10K | ✅（见[数据类型](#数据类型)） |
+| 2/4/8 字节整型与浮点、四种字节序、BCD、MOD10K | ✅（见[数据类型](#数据类型)） |
 | CHAR / VARCHAR | ✅ |
 | 批量分组读取与轮询 | ✅ |
 | 自适应在途限流 | ✅ 依据实测延迟/错误率自动调节 |
@@ -150,6 +151,33 @@ master.init();
 
 与 RTU 相同的同步语义，帧格式为 ASCII（`:`…`CR LF`，LRC 校验），适用于仅支持 ASCII 的网关/设备。
 
+### UDP 主站 —— 异步
+
+```java
+ModbusMaster master = factory.createUdpMaster(params, true);
+master.init();
+```
+
+Modbus UDP：MBAP 头封装在单个数据报中。与 TCP 一样流水线并发、按事务号匹配，每个请求/响应各占一个数据报。配合模拟器的 **UDP** 模式使用。
+
+### RTU over UDP —— 同步
+
+```java
+ModbusMaster master = factory.createRtuUdpMaster(params, true);
+master.init();
+```
+
+RTU 帧（CRC-16）封装在单个数据报中，严格同步（同时只有一个在途请求）。配合模拟器的 **RTU over UDP** 模式使用。
+
+### ASCII over UDP —— 同步
+
+```java
+ModbusMaster master = factory.createAsciiUdpMaster(params, true);
+master.init();
+```
+
+ASCII 帧封装在单个数据报中，同步。配合模拟器的 **ASCII over UDP** 模式使用。
+
 ## 连接参数配置
 
 `IpParameters` 配置主机、端口与套接字行为：
@@ -209,6 +237,23 @@ BaseLocator<String>   irStr = BaseLocator.inputRegisterString(slaveId, offset, D
 // 数值占用两个寄存器 [高, 低]
 BaseLocator<Number> a = BaseLocator.holdingRegister(1, 0, DataType.FOUR_BYTE_FLOAT);          // ABCD
 BaseLocator<Number> b = BaseLocator.holdingRegister(1, 0, DataType.FOUR_BYTE_FLOAT_SWAPPED);  // CDAB
+```
+
+**32/64 位四种字节序。** 每种 16/32/64 位整型与浮点类型都提供自解释的显式常量，直接标明线字节序。数值跨 `N` 个寄存器，两个独立维度为*寄存器序*与*寄存器内字节序*，共四种线序：
+
+| 后缀 | 中文名 | 线字节（32 位示例，`0x12345678`） | 含义 |
+| --- | --- | --- | --- |
+| `_ABCD` | 大端 | `12 34 56 78` | 寄存器正序、字节不交换 |
+| `_BADC` | 先大端后小端 | `34 12 78 56` | 寄存器正序、寄存器内字节交换 |
+| `_CDAB` | 先小端后大端 | `56 78 12 34` | 寄存器反序、字节不交换 |
+| `_DCBA` | 小端 | `78 56 34 12` | 寄存器反序、寄存器内字节交换 |
+
+上述常量覆盖：`TWO_BYTE_INT_UNSIGNED/SIGNED`（`_AB`/`_BA`）、`FOUR_BYTE_INT_UNSIGNED/SIGNED` 与 `FOUR_BYTE_FLOAT`（`_ABCD`/`_BADC`/`_CDAB`/`_DCBA`）、`EIGHT_BYTE_INT_UNSIGNED/SIGNED` 与 `EIGHT_BYTE_FLOAT`（`_ABCD`/`_BADC`/`_CDAB`/`_DCBA`）。旧的 Mango 兼容名保留为别名：`FOUR_BYTE_FLOAT`=`_ABCD`、`FOUR_BYTE_FLOAT_SWAPPED`=`_CDAB`、`FOUR_BYTE_INT_*_SWAPPED`=`_CDAB`、`FOUR_BYTE_INT_*_SWAPPED_SWAPPED`=`_DCBA`、`EIGHT_BYTE_*_SWAPPED`=`_CDAB`。`FOUR_BYTE_FLOAT_SWAPPED_INVERTED` 已废弃（与 `_SWAPPED` 重复）。
+
+```java
+BaseLocator<Number> big      = BaseLocator.holdingRegister(1, 0, DataType.FOUR_BYTE_FLOAT_ABCD);
+BaseLocator<Number> little   = BaseLocator.holdingRegister(1, 0, DataType.FOUR_BYTE_FLOAT_DCBA);
+BaseLocator<Number> byteSwap = BaseLocator.holdingRegister(1, 0, DataType.FOUR_BYTE_FLOAT_BADC);
 ```
 
 BCD 类型每个字节压缩两位十进制数（`0x1234` ↔ `1234`）；MOD10K 类型每个寄存器压缩最多四位十进制数（`1234, 5678` ↔ `12345678`），映射为 `BigInteger`。写入时会校验取值范围，越界抛出 `IllegalArgumentException`。
@@ -501,7 +546,7 @@ GNU General Public License v3.0 或更高版本（见 [LICENSE](./LICENSE)）。
 
 ## 路线图
 
-- v1.0：TCP / RTU / ASCII 主站模式，完整功能码与数据类型，批量与轮询，自适应并发，自动重连，扩展 SPI，样例代码（本版本）
+- v1.0：TCP / UDP / RTU-over-TCP+UDP / ASCII-over-TCP+UDP 主站模式，完整功能码与数据类型（四种字节序），批量与轮询，自适应并发，自动重连，扩展 SPI，样例代码（本版本）
 - v1.1：`SIX_BYTE_INT` 变体，更完善的重连退避策略
 - v2.0：从站（服务器）模式
 

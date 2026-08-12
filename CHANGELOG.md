@@ -18,6 +18,12 @@ All notable changes to this project will be documented in this file.
 - `samples/` module with runnable examples (embedded slave + TCP/RTU/ASCII/batch/polling/data-types/extended-FC/custom-codec/custom-pipeline/custom-transport).
 - Detailed bilingual usage + extension guide in README.
 
+### Added
+
+- UDP transport (`UdpTransport`) and three new master modes: Modbus UDP (MBAP over UDP), RTU over UDP, ASCII over UDP — via `ModbusFactory.createUdpMaster` / `createRtuUdpMaster` / `createAsciiUdpMaster`, matching the common Modbus slave simulator's UDP modes. New `DatagramFrameDecoder`/`DatagramFrameEncoder`/`UdpChannelInitializer` wire the datagram channel.
+- Explicit 32/64-bit byte-order data types: every 16/32/64-bit signed/unsigned int and float now has `_AB`/`_BA` (16-bit) and `_ABCD`/`_BADC`/`_CDAB`/`_DCBA` (32/64-bit) constants covering the four wire layouts (register order × byte order within register). Legacy Mango-compatible names kept as aliases; `FOUR_BYTE_FLOAT_SWAPPED_INVERTED` deprecated.
+- Samples: `UdpSample`; `EmbeddedModbusSlave` now also listens for UDP MBAP, RTU over UDP and ASCII over UDP.
+
 ### Fixed
 
 - RTU / ASCII decoders now resynchronize instead of blocking forever when a corrupt frame arrives (bad CRC/LRC, stray bytes, malformed function code). Previously such a frame was kept in the decoder buffer indefinitely, so every later — valid — response was mis-parsed and the connection appeared permanently stuck with `ModbusTransportException: Response timeout` even though the slave was replying normally. Corrupt frames are now dropped (with a `warn` log) and the decoder picks up the next valid frame.

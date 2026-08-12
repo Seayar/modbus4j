@@ -30,11 +30,12 @@ mvn -f samples/pom.xml exec:java -Dexec.mainClass=io.github.seayar.modbus4j.samp
 
 | Sample | Demonstrates |
 | --- | --- |
-| `EmbeddedModbusSlave` | In-memory Netty Modbus TCP slave (FC 1–7, 15–17, 20–23) used by the other samples |
+| `EmbeddedModbusSlave` | In-memory Netty Modbus slave (FC 1–7, 15–17, 20–23): TCP MBAP on port 1502, plus UDP MBAP on 1502, RTU over UDP on 1503 and ASCII over UDP on 1504 |
 | `TcpSample` | TCP master: single reads, writes, bit access, strings, `BatchRead`, async via transport |
+| `UdpSample` | UDP master (MBAP), RTU over UDP and ASCII over UDP |
 | `RtuAsciiSample` | RTU-over-TCP and ASCII-over-TCP masters (strictly synchronous) |
 | `PollingSample` | `PollTask` + `PollListener` periodic polling |
-| `DataTypeSample` | All register data types incl. swap variants, BCD and MOD10K |
+| `DataTypeSample` | All register data types incl. swap variants, BCD, MOD10K and the four 32-bit byte orders |
 | `AdvancedFunctionCodeSample` | FC 7 / 17 / 20 / 21 / 22 / 23 through the master convenience methods |
 | `CustomCodecSample` | Vendor function code (FC 22) with a custom request + custom `ModbusCodec` |
 | `SslPipelineSample` | `ChannelPipelineCustomizer` wiring TLS + a pre-connection auth handshake |
